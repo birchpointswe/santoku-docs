@@ -46,8 +46,7 @@ return {
       runnable = false,
       lang = "text",
       code = [[
-toku setup        # mandatory, once; done by setup-toku.sh (the Install tab), or run
-                  # toku setup --use-system to drive your own lua 5.1 toolchain
+toku setup        # mandatory, once; done by setup-toku.sh (the Install tab)
 emcc, emmake      # Emscripten, compiles the client to WebAssembly. Install emsdk:
                   #   git clone https://github.com/emscripten-core/emsdk.git
                   #   cd emsdk && ./emsdk install latest && ./emsdk activate latest
@@ -72,8 +71,7 @@ tailwindcss       # v4 specifically: the build passes --cwd, which v3 rejects.
                   # The standalone binary from the tailwindcss releases page works
 rsvg-convert      # rasterises icons. Debian and Ubuntu: librsvg2-bin,
                   # Alpine: librsvg
-luarocks          # invoked by toku; the managed toolchain ships its own, so it is
-                  # only yours to install in --use-system mode
+luarocks          # invoked by toku; the managed toolchain ships its own
 git               # toku init runs git init unless told not to
 inotifywait       # toku test --iterate needs it and errors without it
 

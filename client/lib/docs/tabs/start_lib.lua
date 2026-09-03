@@ -43,10 +43,8 @@ return {
       runnable = false,
       lang = "text",
       code = [[
-toku setup        # mandatory, once; done by setup-toku.sh (the Install tab), or run
-                  # toku setup --use-system to drive your own lua 5.1 toolchain
-luarocks          # invoked by toku; the managed toolchain ships its own, so it is
-                  # only yours to install in --use-system mode
+toku setup        # mandatory, once; done by setup-toku.sh (the Install tab)
+luarocks          # invoked by toku; the managed toolchain ships its own
 cc and make       # compile the C sources in the rock and in its dependencies
 git               # toku init runs git init; toku release tags and pushes
 gh                # only for toku release: it creates the GitHub release that

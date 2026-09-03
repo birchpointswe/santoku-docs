@@ -73,33 +73,6 @@ no problems found
     },
 
     {
-      title = "Using a lua 5.1 toolchain you already have",
-      desc = table.concat({
-        "toku records which lua and luarocks it drives in a manifest at ",
-        "~/.local/share/toku, in one of two modes. The script above sets up managed ",
-        "mode, a private pair that shadows nothing on your system. If you would rather ",
-        "toku drive your own toolchain, run toku setup --use-system afterwards: it ",
-        "verifies that the interpreter reports Lua 5.1 (a 5.1-compatible luajit is ",
-        "accepted) and that luarocks targets lua 5.1, records their absolute paths, ",
-        "and refuses with a precise diagnostic otherwise. A lua 5.1 luac is recorded ",
-        "too when one exists; luajit systems often have none, in which case the ",
-        "bytecode commands error with instructions instead of silently using a ",
-        "mismatched luac.",
-      }),
-      runnable = false,
-      lang = "text",
-      code = [[
-$ toku setup --use-system
-[setup]	using system toolchain
-[setup]	lua: /usr/bin/luajit (Lua 5.1, LuaJIT 2.1.1748459687)
-[setup]	luarocks: /usr/bin/luarocks (3.12.2, targets lua 5.1)
-[setup]	luac: /usr/bin/luac5.1 (5.1.5)
-[setup]	recorded in /home/you/.local/share/toku/manifest.lua
-$ toku doctor
-]],
-    },
-
-    {
       title = "Maintenance: doctor, repair, upgrade, uninstall",
       desc = table.concat({
         "The provisioning script stores a copy of itself at ",
