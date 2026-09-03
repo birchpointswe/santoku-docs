@@ -331,9 +331,9 @@ return {
     nginx = {
       ssl_self_signed = true,
       hsts = false,
-      ssl_port = env.var("SSL_PORT", "8444"),
+      ssl_port = "8444",
       domain = "localhost",
-      port = env.var("PORT", "8081"),
+      port = "8081",
       workers = "auto",
       acme_root = "/home/app",
     },
