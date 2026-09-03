@@ -39,7 +39,7 @@ return {
       desc = "scaffold a full-stack web app, WebAssembly client plus OpenResty server in one repository: every file toku init --web produces, the configure hook, and the dev loop",
       content = require("docs.tabs.start_web") },
     { id = "start-server", label = "Getting started: a server API", group = "Getting started",
-      desc = "a JSON API with no frontend: server-side SQLite under OpenResty in WAL mode, one connection and prepared statements per nginx worker, native specs against :memory:, and the subtractive recipe from toku init --web",
+      desc = "a JSON API with no frontend: every file toku init --api produces, server-side SQLite under OpenResty in WAL mode, one connection and prepared statements per nginx worker, and native specs against :memory:",
       content = require("docs.tabs.start_server") },
     { id = "santoku", label = "santoku", group = "Core",
       desc = "the base library: arrays, strings, tables, functions, numbers, and fractional order keys",

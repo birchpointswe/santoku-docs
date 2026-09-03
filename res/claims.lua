@@ -349,6 +349,8 @@ return function (opts)
     "Scaffold a library project", scaffold.lib, "toku init")
   check_scaffold_listing(tabs.start_web, "start_web",
     "Scaffold a web project", scaffold.web, "toku init --web")
+  check_scaffold_listing(tabs.start_server, "start_server",
+    "Scaffold an API project", scaffold.api, "toku init --api")
   check_index_options(tabs, opts.lua_path)
   check_sw_options(tabs, opts.lua_path)
   check_manifest_options(tabs, opts.lua_path)

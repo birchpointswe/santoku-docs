@@ -65,6 +65,22 @@ local scaffold_specs = {
       "res/client/migrations/0.0.1.sql",
     },
   },
+  {
+    key = "api",
+    name = "my-api",
+    mod = "my_api",
+    create = "create_api",
+    files = {
+      "make.lua",
+      "res/server/migrations/0.0.1.sql",
+      "server/lib/%m/db.tk.lua",
+      "server/lib/%m/web/init.lua",
+      "server/lib/%m/web/init_worker.lua",
+      "server/lib/%m/web/items.lua",
+      "server/nginx.tk.conf",
+      "server/test/spec/%m.lua",
+    },
+  },
 }
 
 local prism_components = {
@@ -496,7 +512,11 @@ return {
       local hash_ok = fs.join(client_env.dist_dir, "hash.ok")
       local scaffold_src = fs.join(client_env.work_dir, "lib/docs/scaffold.lua")
       local scaffold_deps = {}
-      for _, mod in ipairs({ "santoku.make.project.lib", "santoku.make.project.web" }) do
+      for _, mod in ipairs({
+        "santoku.make.project.lib",
+        "santoku.make.project.web",
+        "santoku.make.project.api",
+      }) do
         local fp = env.searchpath(mod, package.path)
         if fp then
           scaffold_deps[#scaffold_deps + 1] = fp
