@@ -1,0 +1,10 @@
+.git
+.gitignore
+build/
+lua_modules/
+node_modules/
+.tmp*
+*.swp
+*.swo
+.luacov
+luacov.*.out

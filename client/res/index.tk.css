@@ -1,0 +1,193 @@
+@import "<% return root_dir %>/res/vendor/tailwind/theme.css";
+@source "<% return root_dir %>/res/*.html";
+@source "<% return root_dir %>/client/lib/docs/*.lua";
+@source "<% return root_dir %>/client/lib/docs/tabs/*.lua";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  background: #f5f5f4;
+}
+
+@media (prefers-color-scheme: dark) {
+  html {
+    background: #0f172a;
+  }
+}
+
+textarea {
+  tab-size: 2;
+}
+
+.code-editor {
+  min-height: 3rem;
+  tab-size: 2;
+  caret-color: currentColor;
+}
+
+.panel-in {
+  animation: panel-in 160ms ease-out;
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel-in {
+    animation: none;
+  }
+}
+
+:root {
+  --anim-scale: <% return tostring(client.anim_scale or 1) %>;
+  --spring-effects: linear(0, 0.01499, 0.05318, 0.1064, 0.1684, 0.2348, 0.3024, 0.3689, 0.4328, 0.493, 0.549, 0.6005, 0.6474, 0.6898, 0.7279, 0.762, 0.7923, 0.8192, 0.8429, 0.8637, 0.882, 0.8979, 0.9119, 0.924, 0.9346, 0.9437, 0.9516, 0.9585, 0.9644, 0.9695, 0.9739, 0.9777, 0.9809, 0.9837, 0.9861, 0.9881, 0.9899, 0.9914, 0.9927, 0.9937, 0.9947, 0.9955, 0.9962, 0.9967, 0.9972, 0.9976, 0.998, 0.9983, 0.9986, 0.9988, 1);
+  --ease-decel: cubic-bezier(0, 0, 0.2, 1);
+}
+
+#tab-rail {
+  scrollbar-width: thin;
+}
+
+.nav-scrim {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity calc(180ms * var(--anim-scale)) var(--ease-decel);
+}
+
+.nav-scrim.nav-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+body.nav-locked {
+  overflow: hidden;
+}
+
+@media (max-width: 767px) {
+  .nav-rail {
+    transform: translateX(-100%);
+    transition: transform calc(350ms * var(--anim-scale)) var(--spring-effects);
+    will-change: transform;
+    background: #f5f5f4;
+    border-right: 1px solid #e2e8f0;
+    box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  }
+  .nav-rail.nav-open {
+    transform: translateX(0);
+  }
+}
+
+@media (max-width: 767px) and (prefers-color-scheme: dark) {
+  .nav-rail {
+    background: #0f172a;
+    border-right-color: #1e293b;
+  }
+}
+
+.top-bar-bg,
+.top-brand {
+  opacity: 0;
+  transition: opacity calc(200ms * var(--anim-scale)) var(--ease-decel);
+}
+
+#top-bar.scrolled .top-bar-bg,
+#top-bar.scrolled .top-brand {
+  opacity: 1;
+}
+
+.search-results {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-4px);
+  transition:
+    opacity calc(160ms * var(--anim-scale)) var(--ease-decel),
+    transform calc(160ms * var(--anim-scale)) var(--ease-decel),
+    visibility 0s linear calc(160ms * var(--anim-scale));
+}
+
+.search-results.open {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+  transition:
+    opacity calc(160ms * var(--anim-scale)) var(--ease-decel),
+    transform calc(160ms * var(--anim-scale)) var(--ease-decel),
+    visibility 0s;
+}
+
+#search-close-icon {
+  display: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html.smooth-scroll {
+    scroll-behavior: smooth;
+  }
+}
+
+@media (max-width: 767px) {
+  #top-bar.search-open #nav-toggle,
+  #top-bar.search-open #top-brand {
+    display: none;
+  }
+  #top-bar.search-open #search-wrap {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+  #top-bar.search-open #search-input {
+    display: block;
+    width: 100%;
+  }
+  #top-bar.search-open #search-icon {
+    display: none;
+  }
+  #top-bar.search-open #search-close-icon {
+    display: block;
+  }
+  #top-bar.search-open #search-toggle {
+    order: 1;
+    margin-right: -0.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-rail,
+  .nav-scrim,
+  .top-bar-bg,
+  .top-brand,
+  .search-results {
+    transition: none;
+  }
+}
+
+.token.comment { color: oklch(55.3% 0.013 58.071); font-style: italic; }
+.token.keyword { color: oklch(60% 0.118 184.704); }
+.token.string { color: oklch(55.5% 0.163 48.998); }
+.token.number { color: oklch(54.1% 0.281 293.009); }
+.token.function { color: oklch(54.6% 0.245 262.881); }
+.token.operator { color: oklch(44.4% 0.011 73.639); }
+.token.punctuation { color: oklch(55.3% 0.013 58.071); }
+
+@media (prefers-color-scheme: dark) {
+  .token.comment { color: oklch(70.9% 0.01 56.259); }
+  .token.keyword { color: oklch(77.7% 0.152 181.912); }
+  .token.string { color: oklch(82.8% 0.189 84.429); }
+  .token.number { color: oklch(70.2% 0.183 293.541); }
+  .token.function { color: oklch(70.7% 0.165 254.624); }
+  .token.operator { color: oklch(70.9% 0.01 56.259); }
+  .token.punctuation { color: oklch(70.9% 0.01 56.259); }
+}

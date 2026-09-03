@@ -1,0 +1,4 @@
+<%
+  local manifest = require("santoku.web.pwa.manifest")
+  return manifest(client.pwa)
+%>
