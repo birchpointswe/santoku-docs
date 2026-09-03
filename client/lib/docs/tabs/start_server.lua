@@ -105,7 +105,7 @@ return {
 
     nginx = {
       domain = env.var("DOMAIN", "localhost"),
-      port = env.var("PORT", "8080"),
+      port = "8080",
       workers = env.var("WORKERS", "auto"),
       modules = {
         "my-api.web.init",
@@ -386,12 +386,12 @@ ngx.say(json.encode({ id = db.create_item(req.name) }))
         "server before the specs run and stops it after, so plain luasocket ",
         "requests against localhost hit actual nginx, actual routing, and the ",
         "actual per-worker database. ",
-        "One coupling to know about: nginx.tk.conf bakes the port at BUILD time ",
-        "from the descriptor, while the spec reads PORT at TEST time. Build with ",
-        "PORT=9000 and then test with PORT unset and the spec probes 8080 while ",
-        "nginx listens on 9000. Pass the same PORT to both, or neither. The ",
-        "spec's failure message names the port it tried and why, so this reads ",
-        "as a misconfiguration rather than as a broken endpoint.",
+        "The port has one source: the descriptor's nginx block. nginx.tk.conf ",
+        "renders it at build time, and toku test hands the same value to server ",
+        "specs as the PORT environment variable, so the spec reads env.var(...) ",
+        "with no default and cannot drift from what nginx bound. To change the ",
+        "port, edit make.lua; the descriptor is a tracked dependency, so the ",
+        "next build re-renders everything that uses it.",
       }),
       runnable = false,
       lang = "lua",
@@ -411,7 +411,7 @@ test("items endpoint", function ()
   local http = require("socket.http")
   local ltn12 = require("ltn12")
   local env = require("santoku.env")
-  local port = env.var("PORT", "8080")
+  local port = env.var("PORT")
   local url = "http://localhost:" .. port .. "/items"
   local body = "{\"name\":\"from the spec\"}"
   local chunks = {}
@@ -425,9 +425,7 @@ test("items endpoint", function ()
     source = ltn12.source.string(body),
     sink = ltn12.sink.table(chunks),
   })
-  err.assert(ok, "no response on port " .. port .. " (" .. tostring(code) ..
-    "). nginx.tk.conf bakes PORT at build time and this spec reads it at test " ..
-    "time, so build and test must be given the same PORT.")
+  err.assert(ok, "no response on port " .. port .. " (" .. tostring(code) .. ")")
   err.assert(code == 200, "expected 200, got " .. tostring(code))
   err.assert(string.find(table.concat(chunks), "\"id\""), "response carries id")
   chunks = {}
@@ -471,14 +469,9 @@ HTTP/1.1 400 Bad Request
 $ toku stop
 $ toku test --server
 
-# Changing PORT alone does NOT rebuild nginx.conf. The rendered config depends
-# on your nginx.tk.conf and on the build stamps, not on the environment, so
-# `PORT=9000 toku build --test` on an existing tree is a silent no-op and the
-# server keeps listening on the old port. Touch the source to force a re-render,
-# and pass the same PORT to the tests, since the spec reads it at test time.
-$ touch server/nginx.tk.conf
-$ PORT=9000 toku build --test
-$ PORT=9000 toku test --server
+# to change the port, edit the descriptor's nginx block in make.lua and
+# rebuild; nginx.conf re-renders because the descriptor is a tracked
+# dependency, and the spec receives the same value automatically via PORT
 ]],
     },
 
