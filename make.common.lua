@@ -2,9 +2,9 @@ local fs = require("santoku.fs")
 local arr = require("santoku.array")
 local sys = require("santoku.system")
 local env = require("santoku.env")
-local build = require("santoku.make.build")
 local vendor = require("santoku.make.vendor")
-local lp = require("santoku.lpeg")
+
+local site = "https://santoku.dev"
 
 local icon_sizes = { 192, 512, 1024 }
 local apple_icon_size = 180
@@ -195,11 +195,11 @@ local function render_llms (content)
     local items = groups[name]
     for j = 1, #items do
       local tab = items[j]
+      push("- [", tab.label, "](", site, "/", tab.id, "): ", tab.desc)
       if tab.url then
-        push("- [", tab.label, "](", tab.url, "): ", tab.desc, "\n")
-      else
-        push("- ", tab.label, ": ", tab.desc, "\n")
+        push(" (source: ", tab.url, ")")
       end
+      push("\n")
     end
     push("\n")
   end
@@ -219,6 +219,7 @@ local function render_llms_full (content)
     local tab = content.tabs[i]
     if tab.content then
       push("\n## ", tab.label, "\n\n")
+      push(site, "/", tab.id, "\n\n")
       push(tab.content.intro, "\n")
       for j = 1, #tab.content.examples do
         local ex = tab.content.examples[j]
@@ -337,10 +338,6 @@ return {
         description = "A Lua framework for building applications end to end.",
         theme_color = "#1e293b",
         background_color = "#f5f5f4",
-        transforms = {
-          css = build.minify_css,
-          html = lp.minify_html,
-        },
       },
     },
 
@@ -391,10 +388,12 @@ return {
       end
       local client_env = envs.client
       if not client_env then return end
+      local render_src = fs.join(client_env.root_dir, "res/render.lua")
+      local body_src = fs.join(client_env.root_dir, "res/body.html")
       local css_out = fs.join(client_env.public_dir, "index.css")
       local css_in = fs.join(client_env.build_dir, "res/index.css")
       submake.target({ client_env.target }, { css_out })
-      submake.target({ css_out }, { css_in }, function ()
+      submake.target({ css_out }, { css_in, render_src, body_src }, function ()
         sys.execute({
           "tailwindcss",
           "--cwd", client_env.root_dir,
@@ -581,6 +580,28 @@ return {
         fs.mkdirp(fs.dirname(llms_full_txt))
         fs.writefile(llms_full_txt, render_llms_full(load_docs_content(client_env.root_dir, gen_dir)))
       end)
+      local prism_names = {}
+      for _, p in ipairs(prism_components) do
+        prism_names[#prism_names + 1] = p.name
+      end
+      local pages_ok = fs.join(client_env.dist_dir, "pages.ok")
+      submake.target({ client_env.target }, { pages_ok })
+      submake.target({ pages_ok },
+        arr.flatten({ llms_deps(), { render_src, body_src }, prism_files }),
+        function ()
+          fs.runfile(render_src)({
+            root_dir = client_env.root_dir,
+            gen_dir = gen_dir,
+            work_dir = client_env.work_dir,
+            vendor_dir = vendor_dir,
+            public_dir = fs.join(client_env.dist_dir, "public"),
+            manifest_path = fs.join(client_env.dist_dir, "hash-manifest.lua"),
+            site = site,
+            prism = prism_names,
+          })
+          fs.mkdirp(fs.dirname(pages_ok))
+          fs.writefile(pages_ok, "")
+        end)
     end,
 
   }
