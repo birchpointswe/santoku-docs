@@ -247,10 +247,10 @@ local function setup_search ()
 end
 
 local function boot ()
+  window.__docs_ready = true
   enhance_examples()
   run_pending()
   setup_search()
-  window.__docs_ready = true
 end
 
 if document.readyState == "loading" then

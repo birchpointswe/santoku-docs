@@ -21,7 +21,10 @@ return {
     "out: the init versus init_worker split, the pragma set, statement lifetime, ",
     "and testing the database module natively with no nginx involved. Everything ",
     "assumes toku is installed per the Install tab, plus openresty on PATH and ",
-    "OPENRESTY_DIR set; a server-only project needs none of the client toolchain, ",
+    "OPENRESTY_DIR set (install it from openresty.org/en/installation.html; on ",
+    "Debian and Ubuntu their apt repo, on Alpine the community package, then ",
+    "export OPENRESTY_DIR=/usr/local/openresty), and git, which toku init runs. ",
+    "A server-only project needs none of the client toolchain, ",
     "and toku doctor reports the project as server only and checks exactly that. ",
     "toku init --api scaffolds the whole project, and every file shown below is ",
     "reproduced straight from the boilerplate the CLI ships, so what you read is ",
@@ -231,7 +234,13 @@ $ curl -si -X POST http://127.0.0.1:8080/items -d 'not json' | head -1
 HTTP/1.1 400 Bad Request
 
 $ toku stop
+
 $ toku test --server
+# runs the specs against a fresh test server it starts and stops itself.
+# success looks like a luacheck summary with 0 errors after both spec
+# halves have printed nothing: silence plus exit 0 is the pass state,
+# and the access log under build/default/test/dist/logs shows the
+# spec's POST and GET if you want proof the HTTP half really ran
 
 # to change the port, edit the descriptor's nginx block in make.lua and
 # rebuild; nginx.conf re-renders because the descriptor is a tracked
