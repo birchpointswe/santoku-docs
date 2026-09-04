@@ -1,4 +1,4 @@
-<body class="m-0 p-0 min-h-screen bg-stone-100 text-slate-800 dark:bg-slate-900 dark:text-slate-200 font-sans">
+<body data-tab="{{tab_id}}" class="m-0 p-0 min-h-screen bg-stone-100 text-slate-800 dark:bg-slate-900 dark:text-slate-200 font-sans">
   <div id="nav-scrim" class="nav-scrim fixed inset-0 z-40 bg-slate-900/40 md:hidden"></div>
   <div id="top-bar" class="fixed top-0 inset-x-0 z-30 h-14">
     <div id="top-bar-bg" class="top-bar-bg absolute inset-0 bg-stone-100/85 dark:bg-slate-900/85 backdrop-blur
@@ -14,7 +14,7 @@
         </svg>
       </button>
       <div id="top-brand" class="top-brand flex items-center gap-2 min-w-0">
-        <img src="/favicon.svg" alt="" width="28" height="28" class="w-7 h-7 shrink-0">
+        <img src="/{{{favicon}}}" alt="" width="28" height="28" class="w-7 h-7 shrink-0">
         <span class="font-mono text-base font-bold tracking-tight">santoku</span>
       </div>
       <div class="flex-1 min-w-0"></div>
@@ -49,7 +49,7 @@
   <div class="max-w-6xl mx-auto px-4 md:px-6 pt-20 pb-6 md:pb-10">
     <header class="mb-8 md:mb-12">
       <div class="flex items-center gap-3 md:gap-4">
-        <img src="/favicon.svg" alt="santoku" width="80" height="80" class="w-16 h-16 md:w-20 md:h-20 shrink-0">
+        <img src="/{{{favicon}}}" alt="santoku" width="80" height="80" class="w-16 h-16 md:w-20 md:h-20 shrink-0">
         <div class="min-w-0">
           <h1 class="m-0 text-2xl md:text-3xl font-bold tracking-tight font-mono">santoku</h1>
           <p class="m-0 text-sm md:text-base text-slate-500 dark:text-slate-400">
@@ -70,7 +70,7 @@
         <span class="rounded-full border border-solid border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1 text-xs font-medium text-slate-600 dark:text-slate-300">SQLite, crypto, parsing, ML</span>
       </div>
       <div class="mt-4 max-w-prose rounded-xl border border-solid border-slate-200 dark:border-slate-700 border-l-4 border-l-emerald-500 dark:border-l-emerald-500 bg-white dark:bg-slate-800 px-4 py-3 shadow-sm">
-        <p id="lua-position" class="m-0 text-sm leading-relaxed text-slate-600 dark:text-slate-300"></p>
+        <p id="lua-position" class="m-0 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{{lua_position}}</p>
       </div>
     </header>
     <noscript>
@@ -84,8 +84,9 @@
         class="nav-rail fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] overflow-y-auto overscroll-contain
           px-4 py-5
           md:z-auto md:w-60 md:max-w-none md:shrink-0 md:self-start md:sticky md:top-20
-          md:px-0 md:py-0 md:max-h-[calc(100vh-6rem)]"></nav>
-      <main id="tab-panels" class="flex-1 min-w-0 pt-5 md:pt-0"></main>
+          md:px-0 md:py-0 md:max-h-[calc(100vh-6rem)]">{{{nav}}}</nav>
+      <main id="tab-panels" class="flex-1 min-w-0 pt-5 md:pt-0">{{{panel}}}</main>
     </div>
   </div>
+{{{loader}}}
 </body>

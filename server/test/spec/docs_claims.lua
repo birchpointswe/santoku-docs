@@ -1,5 +1,21 @@
+-- luacheck: globals os.tmpname loadstring setfenv
+
+local real_tmpname = os.tmpname
+local tmp_n = 0
+os.tmpname = function ()
+  local ok, name = pcall(real_tmpname)
+  if ok and name then
+    return name
+  end
+  tmp_n = tmp_n + 1
+  return ".docs-claims-tmp." .. tmp_n
+end
+
+local test = require("santoku.test")
 local fs = require("santoku.fs")
+local sys = require("santoku.system")
 local env = require("santoku.env")
+local project = require("santoku.make.project")
 
 local loadchunk = loadstring or load
 
@@ -125,13 +141,13 @@ local function table_keys (body, where)
   return out
 end
 
-local function module_source (path, mod)
-  local fp = env.searchpath(mod, path)
+local function module_source (mod)
+  local fp = env.searchpath(mod, package.path)
   if not fp then
     fail("source lookup", {
       "cannot resolve " .. mod,
-      "searched " .. path,
-      "these checks read installed rocks, so the rock tree must exist first",
+      "searched " .. package.path,
+      "these checks read installed rocks declared as server test dependencies",
     })
   end
   return fs.readfile(fp)
@@ -161,35 +177,63 @@ local function example (tab, tab_name, title)
   })
 end
 
-local function load_docs (root_dir, gen_dir)
-  local saved = package.path
-  package.path = fs.join(gen_dir, "?.lua") .. ";"
-    .. fs.join(root_dir, "client/lib/?.lua") .. ";" .. saved
-  for k in pairs(package.loaded) do
-    if string.match(k, "^docs%.") then
-      package.loaded[k] = nil
+local scaffold_meta = fs.runfile("res/docs/scaffold_specs.lua")
+
+local function build_scaffold ()
+  local out = {}
+  for _, spec in ipairs(scaffold_meta.specs) do
+    local dir = "docs-claims-scaffold-" .. spec.key
+    sys.execute({ "rm", "-rf", dir })
+    project[spec.create]({ name = spec.name, dir = dir, git = false, quiet = true })
+    local mod = spec.mod or spec.name
+    local subs = { ["%s"] = spec.name, ["%m"] = mod }
+    local files = {}
+    for _, pattern in ipairs(spec.files) do
+      local rel = string.gsub(pattern, "%%[sm]", subs)
+      local fp = fs.join(dir, rel)
+      if not fs.exists(fp) then
+        fail("scaffold shape", {
+          "the " .. spec.key .. " boilerplate has no " .. rel,
+          "update res/docs/scaffold_specs.lua when the boilerplate changes shape",
+        })
+      end
+      files[#files + 1] = {
+        path = rel,
+        lang = scaffold_meta.lang(rel),
+        code = fs.readfile(fp),
+      }
     end
-  end
-  local tabs = {}
-  local err
-  for _, name in ipairs({ "start_lib", "start_web", "start_server", "web", "socket" }) do
-    local ok, tab = pcall(require, "docs.tabs." .. name)
-    if not ok then
-      err = err or ("docs.tabs." .. name .. ": " .. tostring(tab))
-    else
-      tabs[name] = tab
+    local all = {}
+    for fp in fs.files(dir, true) do
+      all[#all + 1] = string.sub(fp, #dir + 2)
     end
+    table.sort(all)
+    out[spec.key] = { name = spec.name, mod = mod, files = files, all = all }
+    sys.execute({ "rm", "-rf", dir })
   end
-  local ok, scaffold = pcall(require, "docs.scaffold")
-  if not ok then
-    err = err or ("docs.scaffold: " .. tostring(scaffold))
-  end
-  package.path = saved
-  if err then
-    fail("tab load", { err })
-  end
-  return tabs, scaffold
+  return out
 end
+
+local scaffold = build_scaffold()
+
+local req = fs.runfile("res/docs/load.lua")({
+  readfile = fs.readfile,
+  root_dir = ".",
+  preload = {
+    ["docs.scaffold"] = scaffold,
+    ["docs.setup_script"] = { lang = "bash", code = fs.readfile("res/setup-toku.sh") },
+  },
+})
+
+local content = req("docs.content")
+local tabs = {
+  start_lib = req("docs.tabs.start_lib"),
+  start_web = req("docs.tabs.start_web"),
+  start_server = req("docs.tabs.start_server"),
+  web = req("docs.tabs.web"),
+  socket = req("docs.tabs.socket"),
+  sqlite_sync = req("docs.tabs.sqlite_sync"),
+}
 
 local function check_scaffold_listing (tab, tab_name, title, group, command)
   local code = example(tab, tab_name, title).code
@@ -210,8 +254,33 @@ local function check_scaffold_listing (tab, tab_name, title, group, command)
     "fix the listing, and the file count named in the tab intro")
 end
 
-local function check_index_options (tabs, lua_path)
-  local src = module_source(lua_path, "santoku.web.pwa.index")
+test("setup-toku.sh pins match the santoku-cli setup pins", function ()
+  local src = fs.readfile("res/setup-toku.sh")
+  local lua_v = string.match(src, "\nLUA_VERSION=(%S+)") or string.match(src, "^LUA_VERSION=(%S+)")
+  local lr_v = string.match(src, "\nLUAROCKS_VERSION=(%S+)")
+  local cli = require("santoku.cli.setup")
+  if lua_v ~= cli.pins.lua.version or lr_v ~= cli.pins.luarocks.version then
+    fail("setup-toku.sh pins", {
+      "res/setup-toku.sh pins lua " .. tostring(lua_v) .. " and luarocks " .. tostring(lr_v),
+      "the installed santoku-cli pins lua " .. cli.pins.lua.version
+        .. " and luarocks " .. cli.pins.luarocks.version,
+      "the served script must provision exactly what toku expects, so align the pins "
+        .. "in res/setup-toku.sh and lib/santoku/cli/setup.lua and release both",
+    })
+  end
+end)
+
+test("scaffold listings match toku init output", function ()
+  check_scaffold_listing(tabs.start_lib, "start_lib",
+    "Scaffold a library project", scaffold.lib, "toku init")
+  check_scaffold_listing(tabs.start_web, "start_web",
+    "Scaffold a web project", scaffold.web, "toku init --web")
+  check_scaffold_listing(tabs.start_server, "start_server",
+    "Scaffold an API project", scaffold.api, "toku init --api")
+end)
+
+test("documented santoku.web.pwa.index options match the installed module", function ()
+  local src = module_source("santoku.web.pwa.index")
   local tpl, rest = split_template(src, "santoku.web.pwa.index")
   local real = slots(tpl)
   for k in pairs(names(rest, "opts%.([%a_][%w_]*)")) do
@@ -234,10 +303,10 @@ local function check_index_options (tabs, lua_path)
     prod, "the production index snippet in tabs/start_web.lua",
     real, "the installed santoku.web.pwa.index has no such slot",
     "drop the key, or add it to santoku-web and release it")
-end
+end)
 
-local function check_sw_options (tabs, lua_path)
-  local src = module_source(lua_path, "santoku.web.pwa.sw")
+test("documented santoku.web.pwa.sw options match the installed module", function ()
+  local src = module_source("santoku.web.pwa.sw")
   local _, rest = split_template(src, "santoku.web.pwa.sw")
   local real = names(rest, "opts%.([%a_][%w_]*)")
   local where = "tabs/web.lua sw({...})"
@@ -257,10 +326,10 @@ local function check_sw_options (tabs, lua_path)
     prod, "the production sw snippet in tabs/start_web.lua",
     real, "the installed santoku.web.pwa.sw ignores it silently",
     "drop the key, or add it to santoku-web and release it")
-end
+end)
 
-local function check_manifest_options (tabs, lua_path)
-  local src = module_source(lua_path, "santoku.web.pwa.manifest")
+test("documented santoku.web.pwa.manifest options match the installed module", function ()
+  local src = module_source("santoku.web.pwa.manifest")
   local tpl, rest = split_template(src, "santoku.web.pwa.manifest")
   local real = slots((string.gsub(tpl, "{{#icons}}.*{{/icons}}", "")))
   real.icons = true
@@ -279,16 +348,16 @@ local function check_manifest_options (tabs, lua_path)
     doc, "the manifest snippet in tabs/web.lua",
     real, "the installed santoku.web.pwa.manifest",
     "the option table claims to list every real slot, so add or drop the key there")
-end
+end)
 
-local function check_nginx_context (tabs)
+test("the production TLS snippet declares every nginx template variable it uses", function ()
   local code = example(tabs.start_web, "start_web", "Going to production: TLS").code
   local where = "tabs/start_web.lua nginx = {...}"
   local provided = table_keys(brace_table(code, "nginx = {", where), where)
   for k in pairs(names(code, "nginx_cfg%.([%a_][%w_]*)")) do
     provided[k] = true
   end
-  local wsrc = module_source(package.path, "santoku.make.project.web")
+  local wsrc = module_source("santoku.make.project.web")
   local iwhere = "santoku.make.project.web compute_nginx_context"
   for k in pairs(table_keys(brace_table(
     wsrc, "nginx = tbl.merge({}, nginx_cfg, {", iwhere), iwhere))
@@ -301,10 +370,10 @@ local function check_nginx_context (tabs)
     "the snippet's own nginx table does not declare it, its configure hook does "
       .. "not set it, and santoku-make does not inject it, so it renders as nil",
     "declare the key in the snippet's nginx block, or stop referencing it")
-end
+end)
 
-local function check_socket_surface (tabs, lua_path)
-  local real = names(module_source(lua_path, "santoku.http"),
+test("the documented santoku-socket surface matches the santoku-http backend contract", function ()
+  local real = names(module_source("santoku.http"),
     "backend%.([%a_][%w_]*)")
   local doc = {}
   for _, ex in ipairs(tabs.socket.examples) do
@@ -317,43 +386,98 @@ local function check_socket_surface (tabs, lua_path)
     real, "the backend contract santoku.http calls",
     "the tab says the module is exactly these three functions and that they are "
       .. "exactly the santoku-http backend contract; both claims fail if these differ")
-end
+end)
 
-local function check_setup_pins (root_dir)
-  local fp = fs.join(root_dir, "res/setup-toku.sh")
-  local src = fs.readfile(fp)
-  local lua_v = string.match(src, "\nLUA_VERSION=(%S+)") or string.match(src, "^LUA_VERSION=(%S+)")
-  local lr_v = string.match(src, "\nLUAROCKS_VERSION=(%S+)")
-  local ok, cli = pcall(require, "santoku.cli.setup")
-  if not ok then
-    fail("setup-toku.sh pins", {
-      "cannot require santoku.cli.setup: " .. tostring(cli),
-      "this check compares the script's pinned versions against the santoku-cli running the build",
-    })
+test("the documented santoku.sqlite.sync surface exists on the installed module", function ()
+  local src = module_source("santoku.sqlite.sync")
+  local positions = {}
+  local pos = 1
+  while true do
+    local s = string.find(src, "return {", pos, true)
+    if not s then
+      break
+    end
+    positions[#positions + 1] = s
+    pos = s + 1
   end
-  if lua_v ~= cli.pins.lua.version or lr_v ~= cli.pins.luarocks.version then
-    fail("setup-toku.sh pins", {
-      "res/setup-toku.sh pins lua " .. tostring(lua_v) .. " and luarocks " .. tostring(lr_v),
-      "the santoku-cli running this build pins lua " .. cli.pins.lua.version
-        .. " and luarocks " .. cli.pins.luarocks.version,
-      "the served script must provision exactly what toku expects, so align the pins "
-        .. "in res/setup-toku.sh and lib/santoku/cli/setup.lua and release both",
-    })
+  if #positions < 2 then
+    fail("source parse", { "santoku.sqlite.sync: expected handle and module return tables" })
   end
-end
+  local real = {}
+  for _, p in ipairs({ positions[#positions - 1], positions[#positions] }) do
+    local body = brace_table(string.sub(src, p), "return {", "santoku.sqlite.sync")
+    for k in pairs(table_keys(body, "santoku.sqlite.sync")) do
+      real[k] = true
+    end
+  end
+  local doc = {}
+  for _, ex in ipairs(tabs.sqlite_sync.examples) do
+    for k in pairs(names(ex.code, "%f[%w]sync%.([%a_][%w_]*)%s*%(")) do
+      doc[k] = true
+    end
+  end
+  subset("the santoku.sqlite.sync surface",
+    doc, "the sync calls in tabs/sqlite_sync.lua",
+    real, "the installed santoku.sqlite.sync exposes no such function",
+    "fix the call in the tab, or add the function to santoku-sqlite and release it")
+end)
 
-return function (opts)
-  check_setup_pins(opts.root_dir)
-  local tabs, scaffold = load_docs(opts.root_dir, opts.gen_dir)
-  check_scaffold_listing(tabs.start_lib, "start_lib",
-    "Scaffold a library project", scaffold.lib, "toku init")
-  check_scaffold_listing(tabs.start_web, "start_web",
-    "Scaffold a web project", scaffold.web, "toku init --web")
-  check_scaffold_listing(tabs.start_server, "start_server",
-    "Scaffold an API project", scaffold.api, "toku init --api")
-  check_index_options(tabs, opts.lua_path)
-  check_sw_options(tabs, opts.lua_path)
-  check_manifest_options(tabs, opts.lua_path)
-  check_nginx_context(tabs)
-  check_socket_surface(tabs, opts.lua_path)
-end
+test("example dependency constraints admit the installed rock versions", function ()
+  local rocks_dir
+  for entry in string.gmatch(package.path, "[^;]+") do
+    local prefix = string.match(entry, "^(.*)/share/lua/5%.1/%?%.lua$")
+    if prefix and fs.exists(fs.join(prefix, "lib/luarocks/rocks-5.1")) then
+      rocks_dir = fs.join(prefix, "lib/luarocks/rocks-5.1")
+      break
+    end
+  end
+  if not rocks_dir then
+    fail("rock tree lookup", { "no luarocks tree on package.path" })
+  end
+  local function installed_version (rock)
+    local dir = fs.join(rocks_dir, rock)
+    if not fs.exists(dir) then
+      return nil
+    end
+    for name in fs.dir(dir) do
+      local a, b, c = string.match(name, "^(%d+)%.(%d+)%.(%d+)%-%d+$")
+      if a then
+        return tonumber(a), tonumber(b), tonumber(c)
+      end
+    end
+  end
+  for i = 1, #content.tabs do
+    local tab = content.tabs[i]
+    if tab.content then
+      for j = 1, #tab.content.examples do
+        local code = tab.content.examples[j].code
+        for rock, mi1, mi2, mi3, mx in string.gmatch(code,
+          "\"(santoku[%w%-]*) >= (%d+)%.(%d+)%.(%d+), < (%d+)%.")
+        do
+          local a, b, c = installed_version(rock)
+          if a then
+            local minv = { tonumber(mi1), tonumber(mi2), tonumber(mi3) }
+            local have = { a, b, c }
+            local ge = true
+            for k = 1, 3 do
+              if have[k] > minv[k] then
+                break
+              elseif have[k] < minv[k] then
+                ge = false
+                break
+              end
+            end
+            if not ge or a >= tonumber(mx) then
+              fail("example dependency constraint", {
+                tab.id .. " example " .. j .. " pins " .. rock .. " >= "
+                  .. mi1 .. "." .. mi2 .. "." .. mi3 .. ", < " .. mx .. ".0.0",
+                "but the installed " .. rock .. " is " .. a .. "." .. b .. "." .. c,
+                "update the constraint in the example descriptor to the current major",
+              })
+            end
+          end
+        end
+      end
+    end
+  end
+end)

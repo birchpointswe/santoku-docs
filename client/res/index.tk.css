@@ -1,8 +1,8 @@
 @import "<% return root_dir %>/res/vendor/tailwind/theme.css";
-@source "<% return root_dir %>/res/*.html";
-@source "<% return root_dir %>/res/render.lua";
+@source "<% return root_dir %>/res/docs/templates/*.html";
+@source "<% return root_dir %>/res/docs/*.lua";
+@source "<% return root_dir %>/res/docs/tabs/*.lua";
 @source "<% return root_dir %>/client/lib/docs/*.lua";
-@source "<% return root_dir %>/client/lib/docs/tabs/*.lua";
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

@@ -1,0 +1,14 @@
+<%
+  local fs = require("santoku.fs")
+  local req = assert(loadstring(readfile(fs.join(root_dir, "res/docs/load.lua")), "@res/docs/load.lua"))()({
+    readfile = readfile,
+    root_dir = root_dir,
+    gen_dir = fs.join(work_dir, "lib"),
+  })
+  return req("docs.page")({
+    readfile = readfile,
+    root_dir = root_dir,
+    hashed = hashed,
+    site = client.site,
+  }, "santoku")
+%>

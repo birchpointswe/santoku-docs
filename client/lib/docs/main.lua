@@ -1,8 +1,7 @@
 -- luacheck: globals loadstring setfenv
 
 local js = require("santoku.web.js")
-local content = require("docs.content")
-local ids = require("docs.ids")
+local index = require("docs.search_index")
 
 local document = js.document
 local window = js.window
@@ -126,36 +125,6 @@ local function setup_search ()
   local search = document:getElementById("search-input")
   local results = document:getElementById("search-results")
   local current_tab = document.body:getAttribute("data-tab")
-
-  local index = {}
-  for i = 1, #content.tabs do
-    local tab = content.tabs[i]
-    index[#index + 1] = {
-      id = tab.id,
-      tab_id = tab.id,
-      url = "/" .. tab.id,
-      label = tab.label,
-      sub = tab.group or "Libraries",
-      is_tab = true,
-      title_hay = string.lower(tab.label),
-      hay = string.lower(tab.label .. " " .. (tab.desc or "")),
-    }
-    if tab.content then
-      local ex_ids = ids.example_ids(tab)
-      for ei = 1, #tab.content.examples do
-        local ex = tab.content.examples[ei]
-        index[#index + 1] = {
-          id = ex_ids[ei],
-          tab_id = tab.id,
-          url = "/" .. tab.id .. "#" .. ex_ids[ei],
-          label = ex.title,
-          sub = tab.label,
-          title_hay = string.lower(ex.title),
-          hay = string.lower(ex.title .. " " .. (ex.desc or "") .. " " .. (ex.code or "")),
-        }
-      end
-    end
-  end
 
   local function goto_entry (item)
     if item.tab_id == current_tab then

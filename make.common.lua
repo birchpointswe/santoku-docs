@@ -13,11 +13,30 @@ local icon_variants = {
   { suffix = "-maskable", svg = "res/icons/maskable.svg", purpose = "maskable" },
 }
 
-local public_files = { "index.css", "favicon.svg", "apple-touch-icon.png" }
+local banner_rocks = {}
+for fp in fs.files("res/icons/banners") do
+  if fp:match("%.svg$") then
+    arr.push(banner_rocks, fs.stripextensions(fs.basename(fp)))
+  end
+end
+table.sort(banner_rocks)
+
+local public_files = { "index.css", "favicon.svg", "apple-touch-icon.png", "logo.svg", "logo.png" }
 for _, variant in ipairs(icon_variants) do
   for _, size in ipairs(icon_sizes) do
     arr.push(public_files, "icon" .. variant.suffix .. "-" .. size .. ".png")
   end
+end
+for _, rock in ipairs(banner_rocks) do
+  arr.push(public_files, "logo-" .. rock .. ".png")
+end
+
+local stable_files = {
+  "llms.txt", "llms-full.txt", "sitemap.xml", "setup-toku.sh",
+  "logo.svg", "logo.png",
+}
+for _, rock in ipairs(banner_rocks) do
+  arr.push(stable_files, "logo-" .. rock .. ".png")
 end
 
 local function pusher (out)
@@ -28,60 +47,7 @@ local function pusher (out)
   end
 end
 
-local scaffold_langs = {
-  lua = "lua", c = "c", h = "c", html = "markup", js = "javascript",
-  css = "css", sql = "sql", conf = "nginx", json = "json",
-}
-
-local scaffold_specs = {
-  {
-    key = "lib",
-    name = "my-lib",
-    mod = "my_lib",
-    create = "create_lib",
-    files = {
-      "make.lua",
-      "lib/%m.tk.lua",
-      "lib/%m/capi.c",
-      "bin/%s.lua",
-      "test/spec/%m.lua",
-      "res/migrations/0.0.1.sql",
-    },
-  },
-  {
-    key = "web",
-    name = "my-app",
-    create = "create_web",
-    files = {
-      "make.lua",
-      "client/bin/bundle.lua",
-      "client/lib/%s/main.lua",
-      "client/lib/%s/db.tk.lua",
-      "client/static/index.html",
-      "client/res/pre.tk.js",
-      "server/nginx.tk.conf",
-      "server/lib/%s/web/init.lua",
-      "server/lib/%s/web/sync.lua",
-      "res/client/migrations/0.0.1.sql",
-    },
-  },
-  {
-    key = "api",
-    name = "my-api",
-    mod = "my_api",
-    create = "create_api",
-    files = {
-      "make.lua",
-      "res/server/migrations/0.0.1.sql",
-      "server/lib/%m/db.tk.lua",
-      "server/lib/%m/web/init.lua",
-      "server/lib/%m/web/init_worker.lua",
-      "server/lib/%m/web/items.lua",
-      "server/nginx.tk.conf",
-      "server/test/spec/%m.lua",
-    },
-  },
-}
+local scaffold_meta = fs.runfile("res/docs/scaffold_specs.lua")
 
 local prism_components = {
   { name = "core", sha256 = "6caad316dd991f24f8004e0b9c19c055cb5829ff65e973fbee406f96d81b8e7e" },
@@ -101,20 +67,20 @@ for _, p in ipairs(prism_components) do
   prism_pre_js[#prism_pre_js + 1] = "../../../vendor/prism-" .. p.name .. ".min.js"
 end
 
-local function scaffold_lang (path)
-  local ext = string.match(path, "%.([^.]+)$")
-  return ext and scaffold_langs[string.lower(ext)] or "text"
-end
-
 local function generate_scaffold (out_path, work_dir)
   local project = require("santoku.make.project")
   local out = {}
   local push = pusher(out)
   push("return {\n")
-  for _, spec in ipairs(scaffold_specs) do
-    local dir = fs.join(work_dir, "scaffold-" .. spec.key)
-    sys.execute({ "rm", "-rf", dir })
-    project[spec.create]({ name = spec.name, dir = dir, git = false, quiet = true })
+  for _, spec in ipairs(scaffold_meta.specs) do
+    local snap = project.snapshot(spec.key, {
+      name = spec.name,
+      dir = fs.join(work_dir, "scaffold-" .. spec.key),
+    })
+    local by_path = {}
+    for i = 1, #snap.files do
+      by_path[snap.files[i].path] = snap.files[i].code
+    end
     local mod = spec.mod or spec.name
     local subs = { ["%s"] = spec.name, ["%m"] = mod }
     push("  ", spec.key, " = {\n")
@@ -123,117 +89,25 @@ local function generate_scaffold (out_path, work_dir)
     push("    files = {\n")
     for _, pattern in ipairs(spec.files) do
       local rel = string.gsub(pattern, "%%[sm]", subs)
-      local fp = fs.join(dir, rel)
-      if not fs.exists(fp) then
+      local code = by_path[rel]
+      if not code then
         error("scaffold file missing from the " .. spec.key ..
-          " boilerplate: " .. rel .. " (update scaffold_specs in make.common.lua)")
+          " boilerplate: " .. rel .. " (update res/docs/scaffold_specs.lua)")
       end
       push("      { path = ", string.format("%q", rel), ",\n")
-      push("        lang = ", string.format("%q", scaffold_lang(rel)), ",\n")
-      push("        code = ", string.format("%q", fs.readfile(fp)), " },\n")
+      push("        lang = ", string.format("%q", scaffold_meta.lang(rel)), ",\n")
+      push("        code = ", string.format("%q", code), " },\n")
     end
     push("    },\n")
-    local all = {}
-    for fp in fs.files(dir, true) do
-      all[#all + 1] = string.sub(fp, #dir + 2)
-    end
-    table.sort(all)
     push("    all = {\n")
-    for _, rel in ipairs(all) do
+    for _, rel in ipairs(snap.all) do
       push("      ", string.format("%q", rel), ",\n")
     end
     push("    },\n  },\n")
-    sys.execute({ "rm", "-rf", dir })
   end
   push("}\n")
   fs.mkdirp(fs.dirname(out_path))
   fs.writefile(out_path, table.concat(out))
-end
-
-local function load_docs_content (root_dir, gen_dir)
-  local saved_path = package.path
-  package.path = fs.join(root_dir, "client/lib/?.lua") .. ";" .. saved_path
-  if gen_dir then
-    package.path = fs.join(gen_dir, "?.lua") .. ";" .. package.path
-  end
-  for k in pairs(package.loaded) do
-    if string.match(k, "^docs%.") then
-      package.loaded[k] = nil
-    end
-  end
-  local ok, content = pcall(require, "docs.content")
-  package.path = saved_path
-  if not ok then
-    error(content)
-  end
-  return content
-end
-
-local function render_llms (content)
-  local out = {}
-  local push = pusher(out)
-  push("# ", content.title, "\n\n")
-  push("> ", content.summary, "\n\n")
-  push("## About\n\n")
-  push(content.about, "\n\n")
-  push("## Lua version\n\n")
-  push(content.lua_position, "\n\n")
-  local order, groups = {}, {}
-  for i = 1, #content.tabs do
-    local tab = content.tabs[i]
-    local name = tab.group or "Libraries"
-    if not groups[name] then
-      groups[name] = {}
-      order[#order + 1] = name
-    end
-    local items = groups[name]
-    items[#items + 1] = tab
-  end
-  for i = 1, #order do
-    local name = order[i]
-    push("## ", name, "\n\n")
-    local items = groups[name]
-    for j = 1, #items do
-      local tab = items[j]
-      push("- [", tab.label, "](", site, "/", tab.id, "): ", tab.desc)
-      if tab.url then
-        push(" (source: ", tab.url, ")")
-      end
-      push("\n")
-    end
-    push("\n")
-  end
-  return table.concat(out)
-end
-
-local function render_llms_full (content)
-  local out = {}
-  local push = pusher(out)
-  push("# ", content.title, "\n\n")
-  push("> ", content.summary, "\n\n")
-  push("## About\n\n")
-  push(content.about, "\n\n")
-  push("## Lua version\n\n")
-  push(content.lua_position, "\n\n")
-  for i = 1, #content.tabs do
-    local tab = content.tabs[i]
-    if tab.content then
-      push("\n## ", tab.label, "\n\n")
-      push(site, "/", tab.id, "\n\n")
-      push(tab.content.intro, "\n")
-      for j = 1, #tab.content.examples do
-        local ex = tab.content.examples[j]
-        push("\n### ", ex.title, "\n\n")
-        push(ex.desc, "\n\n")
-        push("```", ex.lang or "lua", "\n", ex.code)
-        if not string.match(ex.code, "\n$") then
-          push("\n")
-        end
-        push("```\n")
-      end
-    end
-  end
-  return table.concat(out)
 end
 
 return {
@@ -250,7 +124,10 @@ return {
     },
 
     client = {
+      site = site,
       public = public_files,
+      stable = stable_files,
+      check_links = true,
       ldflags = {
         "-sWASM_BIGINT",
         "-sDEFAULT_LIBRARY_FUNCS_TO_INCLUDE='$stringToNewUTF8'",
@@ -355,6 +232,15 @@ return {
       dependencies = {
         "lua == 5.1",
         "santoku >= 2.0.0, < 3.0.0",
+      },
+      test = {
+        dependencies = {
+          "santoku-make >= 5.0.24, < 6.0.0",
+          "santoku-cli >= 2.12.0, < 3.0.0",
+          "santoku-web >= 2.2.3, < 3.0.0",
+          "santoku-http >= 2.0.0, < 3.0.0",
+          "santoku-sqlite >= 3.2.1, < 4.0.0",
+        }
       }
     },
 
@@ -388,12 +274,14 @@ return {
       end
       local client_env = envs.client
       if not client_env then return end
-      local render_src = fs.join(client_env.root_dir, "res/render.lua")
-      local body_src = fs.join(client_env.root_dir, "res/body.html")
+      local docs_res = {}
+      for fp in fs.files(fs.join(client_env.root_dir, "res/docs"), true) do
+        arr.push(docs_res, fp)
+      end
       local css_out = fs.join(client_env.public_dir, "index.css")
       local css_in = fs.join(client_env.build_dir, "res/index.css")
       submake.target({ client_env.target }, { css_out })
-      submake.target({ css_out }, { css_in, render_src, body_src }, function ()
+      submake.target({ css_out }, arr.flatten({ { css_in }, docs_res }), function ()
         sys.execute({
           "tailwindcss",
           "--cwd", client_env.root_dir,
@@ -408,34 +296,27 @@ return {
       submake.target({ favicon_svg }, { icon_svg }, function ()
         fs.writefile(favicon_svg, fs.readfile(icon_svg))
       end)
-      local stable_dir = fs.join(client_env.dist_dir, "public")
-      local logo_svg = fs.join(stable_dir, "logo.svg")
-      local logo_png = fs.join(stable_dir, "logo.png")
+      local logo_svg = fs.join(client_env.public_dir, "logo.svg")
+      local logo_png = fs.join(client_env.public_dir, "logo.png")
       submake.target({ client_env.target }, { logo_svg, logo_png })
       submake.target({ logo_svg }, { icon_svg }, function ()
-        fs.mkdirp(stable_dir)
         fs.writefile(logo_svg, fs.readfile(icon_svg))
       end)
       submake.target({ logo_png }, { icon_svg }, function ()
-        fs.mkdirp(stable_dir)
         sys.execute({
           "rsvg-convert", "-w", "192", "-h", "192",
           "-o", logo_png, icon_svg
         })
       end)
-      local banner_dir = fs.join(client_env.root_dir, "res/icons/banners")
-      if fs.exists(banner_dir) then
-        for fp in fs.files(banner_dir) do
-          if fp:match("%.svg$") then
-            local rock = fs.stripextensions(fs.basename(fp))
-            local png = fs.join(stable_dir, "logo-" .. rock .. ".png")
-            submake.target({ client_env.target }, { png })
-            submake.target({ png }, { fp }, function ()
-              fs.mkdirp(stable_dir)
-              sys.execute({ "rsvg-convert", "-h", "128", "-o", png, fp })
-            end)
-          end
-        end
+      local banner_pngs = {}
+      for _, rock in ipairs(banner_rocks) do
+        local svg = fs.join(client_env.root_dir, "res/icons/banners", rock .. ".svg")
+        local png = fs.join(client_env.public_dir, "logo-" .. rock .. ".png")
+        arr.push(banner_pngs, png)
+        submake.target({ client_env.target }, { png })
+        submake.target({ png }, { svg }, function ()
+          sys.execute({ "rsvg-convert", "-h", "128", "-o", png, svg })
+        end)
       end
       local manifest_icons = {}
       local icon_pngs = {}
@@ -471,7 +352,8 @@ return {
       end)
       envs.root.client.pwa.icons = manifest_icons
       if client_env.static_files_ok then
-        local all_static_files = arr.flatten({ { css_out, favicon_svg, apple_icon }, icon_pngs })
+        local all_static_files = arr.flatten({
+          { css_out, favicon_svg, apple_icon, logo_svg, logo_png }, icon_pngs, banner_pngs })
         submake.target({ client_env.static_files_ok }, all_static_files)
       end
       local vendor_dir = fs.join(client_env.work_dir, "vendor")
@@ -506,9 +388,8 @@ return {
       local bundle_post = fs.join(client_env.bundler_post_dir, "bundle")
       submake.target({ bundle_post },
         arr.flatten({ prism_files, { codejar_global } }))
-      local content_src = fs.join(client_env.root_dir, "client/lib/docs/content.lua")
-      local tabs_dir = fs.join(client_env.root_dir, "client/lib/docs/tabs")
-      local hash_ok = fs.join(client_env.dist_dir, "hash.ok")
+      local content_src = fs.join(client_env.root_dir, "res/docs/content.lua")
+      local tabs_dir = fs.join(client_env.root_dir, "res/docs/tabs")
       local scaffold_src = fs.join(client_env.work_dir, "lib/docs/scaffold.lua")
       local scaffold_deps = {}
       for _, mod in ipairs({
@@ -535,73 +416,67 @@ return {
       end)
       submake.target({ fs.join(client_env.work_dir, "lua_modules.ok") },
         { scaffold_src, setup_sh_mod })
-      local setup_sh_pub = fs.join(client_env.dist_dir, "public", "setup-toku.sh")
-      submake.target({ client_env.target }, { setup_sh_pub })
-      submake.target({ setup_sh_pub }, { setup_sh_src }, function ()
-        fs.mkdirp(fs.dirname(setup_sh_pub))
-        fs.writefile(setup_sh_pub, fs.readfile(setup_sh_src))
-      end)
-      local function llms_deps ()
-        local deps = { content_src, hash_ok, scaffold_src, setup_sh_mod }
+      local function content_deps ()
+        local deps = { content_src, scaffold_src, setup_sh_mod }
         for fp in fs.files(tabs_dir) do
           deps[#deps + 1] = fp
         end
         return deps
       end
       local gen_dir = fs.join(client_env.work_dir, "lib")
-      local claims_src = fs.join(client_env.root_dir, "res/claims.lua")
-      local claims_ok = fs.join(client_env.work_dir, "claims.ok")
-      submake.target({ client_env.target }, { claims_ok })
-      local claims_deps = {
-        claims_src, scaffold_src, setup_sh_src,
-        fs.join(client_env.work_dir, "lua_modules.ok"),
-      }
-      for fp in fs.files(tabs_dir) do
-        claims_deps[#claims_deps + 1] = fp
+      local highlighted_src = fs.join(client_env.work_dir, "lib/docs/highlighted.lua")
+      for _, rendered in ipairs({
+        "client/static/llms.txt",
+        "client/static/llms-full.txt",
+        "client/static/sitemap.xml",
+      }) do
+        submake.target({ fs.join(client_env.work_dir, rendered) },
+          { scaffold_src, setup_sh_mod })
       end
-      submake.target({ claims_ok }, claims_deps,
-        function ()
-          fs.runfile(claims_src)({
-            root_dir = client_env.root_dir,
-            gen_dir = gen_dir,
-            lua_path = client_env.lua_path,
-          })
-          fs.mkdirp(fs.dirname(claims_ok))
-          fs.writefile(claims_ok, "")
-        end)
-      local llms_txt = fs.join(client_env.dist_dir, "public", "llms.txt")
-      local llms_full_txt = fs.join(client_env.dist_dir, "public", "llms-full.txt")
-      submake.target({ client_env.target }, { llms_txt, llms_full_txt })
-      submake.target({ llms_txt }, llms_deps(), function ()
-        fs.mkdirp(fs.dirname(llms_txt))
-        fs.writefile(llms_txt, render_llms(load_docs_content(client_env.root_dir, gen_dir)))
-      end)
-      submake.target({ llms_full_txt }, llms_deps(), function ()
-        fs.mkdirp(fs.dirname(llms_full_txt))
-        fs.writefile(llms_full_txt, render_llms_full(load_docs_content(client_env.root_dir, gen_dir)))
-      end)
+      for fp in fs.files(fs.join(client_env.root_dir, "client/static"), true) do
+        if fp:match("index%.tk%.html$") then
+          local rendered = string.gsub(
+            string.sub(fp, #client_env.root_dir + 2), "%.tk", "")
+          submake.target({ fs.join(client_env.work_dir, rendered) },
+            { scaffold_src, setup_sh_mod, highlighted_src })
+        end
+      end
       local prism_names = {}
       for _, p in ipairs(prism_components) do
         prism_names[#prism_names + 1] = p.name
       end
-      local pages_ok = fs.join(client_env.dist_dir, "pages.ok")
-      submake.target({ client_env.target }, { pages_ok })
-      submake.target({ pages_ok },
-        arr.flatten({ llms_deps(), { render_src, body_src }, prism_files }),
+      local loader_src = fs.join(client_env.root_dir, "res/docs/load.lua")
+      local highlight_src = fs.join(client_env.root_dir, "res/docs/highlight.lua")
+      local function content_loader ()
+        return fs.runfile(loader_src)({
+          readfile = fs.readfile,
+          root_dir = client_env.root_dir,
+          gen_dir = gen_dir,
+        })
+      end
+      submake.target({ highlighted_src },
+        arr.flatten({ content_deps(), { loader_src, highlight_src }, prism_files }),
         function ()
-          fs.runfile(render_src)({
-            root_dir = client_env.root_dir,
-            gen_dir = gen_dir,
+          fs.runfile(highlight_src)({
+            content = content_loader()("docs.content"),
             work_dir = client_env.work_dir,
             vendor_dir = vendor_dir,
-            public_dir = fs.join(client_env.dist_dir, "public"),
-            manifest_path = fs.join(client_env.dist_dir, "hash-manifest.lua"),
-            site = site,
             prism = prism_names,
+            out_path = highlighted_src,
           })
-          fs.mkdirp(fs.dirname(pages_ok))
-          fs.writefile(pages_ok, "")
         end)
+      local search_src = fs.join(client_env.root_dir, "res/docs/search.lua")
+      local search_index_src = fs.join(client_env.work_dir, "lib/docs/search_index.lua")
+      submake.target({ search_index_src },
+        arr.flatten({ content_deps(), { loader_src, search_src } }),
+        function ()
+          local req = content_loader()
+          fs.mkdirp(fs.dirname(search_index_src))
+          fs.writefile(search_index_src,
+            fs.runfile(search_src)(req("docs.content"), req("docs.ids")))
+        end)
+      submake.target({ fs.join(client_env.work_dir, "lua_modules.ok") },
+        { search_index_src })
     end,
 
   }

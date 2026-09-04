@@ -1,0 +1,19 @@
+<%
+  local fs = require("santoku.fs")
+  local req = assert(loadstring(readfile(fs.join(root_dir, "res/docs/load.lua")), "@res/docs/load.lua"))()({
+    readfile = readfile,
+    root_dir = root_dir,
+    gen_dir = fs.join(work_dir, "lib"),
+  })
+  local content = req("docs.content")
+  local out = {
+    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
+    "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">",
+    "<url><loc>" .. client.site .. "/</loc></url>",
+  }
+  for i = 1, #content.tabs do
+    out[#out + 1] = "<url><loc>" .. client.site .. "/" .. content.tabs[i].id .. "</loc></url>"
+  end
+  out[#out + 1] = "</urlset>"
+  return table.concat(out, "\n") .. "\n"
+%>
