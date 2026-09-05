@@ -242,6 +242,21 @@ CFG="$ROOT/luarocks/etc/luarocks/config-5.1.lua"
 grep -q 'name = "toku"' "$CFG" ||
   printf 'rocks_trees = {\n  { name = "toku", root = "%s/rocks" },\n}\n' "$ROOT" >> "$CFG"
 
+CC_PATH="$(command -v cc)"
+SYS_PREFIX="$(dirname "$(dirname "$CC_PATH")")"
+case "$SYS_PREFIX" in
+  /|/usr|/usr/local) SYS_PREFIX="" ;;
+  *) [ -d "$SYS_PREFIX/include" ] || SYS_PREFIX="" ;;
+esac
+
+if [ -n "$SYS_PREFIX" ] && ! grep -q 'toku: system prefix' "$CFG"; then
+  say "C libraries live under $SYS_PREFIX (from $CC_PATH)"
+  printf '\n-- toku: system prefix, derived from %s\n' "$CC_PATH" >> "$CFG"
+  printf 'external_deps_dirs = { "%s", "/usr/local", "/usr", "/" }\n' "$SYS_PREFIX" >> "$CFG"
+  printf 'variables = variables or {}\n' >> "$CFG"
+  printf 'variables.LIBFLAG = "-shared -Wl,-rpath,%s/lib"\n' "$SYS_PREFIX" >> "$CFG"
+fi
+
 for lock in "$ROOT/rocks/lockfile.lfs" "$ROOT/rocks/lib/luarocks/lockfile.lfs"; do
   if [ -e "$lock" ]; then
     say "clearing stale lock $lock"
