@@ -422,6 +422,39 @@ test("the documented santoku.sqlite.sync surface exists on the installed module"
     "fix the call in the tab, or add the function to santoku-sqlite and release it")
 end)
 
+test("client.bundle_mods matches what runnable examples require", function ()
+  local mods = {}
+  for _, m in ipairs(fs.runfile("make.common.lua").env.client.bundle_mods) do
+    mods[m] = true
+  end
+  local preloads = { ["docs.sandbox"] = true }
+  local used = {}
+  for m in pairs(preloads) do
+    used[m] = true
+  end
+  for i = 1, #content.tabs do
+    local tab = content.tabs[i]
+    if tab.content then
+      for _, ex in ipairs(tab.content.examples) do
+        if ex.runnable ~= false then
+          for m in pairs(names(ex.code, "require%s*%(?%s*\"([^\"]+)\"")) do
+            used[m] = true
+          end
+          for m in pairs(names(ex.code, "require%s*%(?%s*'([^']+)'")) do
+            used[m] = true
+          end
+        end
+      end
+    end
+  end
+  same("client.bundle_mods",
+    used, "the require calls in runnable examples (plus the docs.sandbox os.exit preload)",
+    mods, "client.bundle_mods in make.common.lua",
+    "the bundler only follows static require literals from the client entry, so every "
+      .. "module a Run button pulls in at runtime must be listed explicitly, and "
+      .. "anything listed beyond that ships dead weight in the wasm")
+end)
+
 test("example dependency constraints admit the installed rock versions", function ()
   local rocks_dir
   for entry in string.gmatch(package.path, "[^;]+") do
