@@ -1,19 +1,7 @@
--- luacheck: globals os.tmpname loadstring setfenv
-
-local real_tmpname = os.tmpname
-local tmp_n = 0
-os.tmpname = function ()
-  local ok, name = pcall(real_tmpname)
-  if ok and name then
-    return name
-  end
-  tmp_n = tmp_n + 1
-  return ".docs-claims-tmp." .. tmp_n
-end
+-- luacheck: globals loadstring setfenv
 
 local test = require("santoku.test")
 local fs = require("santoku.fs")
-local sys = require("santoku.system")
 local env = require("santoku.env")
 local project = require("santoku.make.project")
 
@@ -179,42 +167,9 @@ end
 
 local scaffold_meta = fs.runfile("res/docs/scaffold_specs.lua")
 
-local function build_scaffold ()
-  local out = {}
-  for _, spec in ipairs(scaffold_meta.specs) do
-    local dir = "docs-claims-scaffold-" .. spec.key
-    sys.execute({ "rm", "-rf", dir })
-    project[spec.create]({ name = spec.name, dir = dir, git = false, quiet = true })
-    local mod = spec.mod or spec.name
-    local subs = { ["%s"] = spec.name, ["%m"] = mod }
-    local files = {}
-    for _, pattern in ipairs(spec.files) do
-      local rel = string.gsub(pattern, "%%[sm]", subs)
-      local fp = fs.join(dir, rel)
-      if not fs.exists(fp) then
-        fail("scaffold shape", {
-          "the " .. spec.key .. " boilerplate has no " .. rel,
-          "update res/docs/scaffold_specs.lua when the boilerplate changes shape",
-        })
-      end
-      files[#files + 1] = {
-        path = rel,
-        lang = scaffold_meta.lang(rel),
-        code = fs.readfile(fp),
-      }
-    end
-    local all = {}
-    for fp in fs.files(dir, true) do
-      all[#all + 1] = string.sub(fp, #dir + 2)
-    end
-    table.sort(all)
-    out[spec.key] = { name = spec.name, mod = mod, files = files, all = all }
-    sys.execute({ "rm", "-rf", dir })
-  end
-  return out
-end
-
-local scaffold = build_scaffold()
+local scaffold = scaffold_meta.build(project.snapshot, function (key)
+  return "docs-claims-scaffold-" .. key
+end)
 
 local req = fs.runfile("res/docs/load.lua")({
   readfile = fs.readfile,
@@ -427,11 +382,7 @@ test("client.bundle_mods matches what runnable examples require", function ()
   for _, m in ipairs(fs.runfile("res/docs/bundle_mods.lua")) do
     mods[m] = true
   end
-  local preloads = { ["docs.sandbox"] = true }
   local used = {}
-  for m in pairs(preloads) do
-    used[m] = true
-  end
   for i = 1, #content.tabs do
     local tab = content.tabs[i]
     if tab.content then
@@ -448,7 +399,7 @@ test("client.bundle_mods matches what runnable examples require", function ()
     end
   end
   same("client.bundle_mods",
-    used, "the require calls in runnable examples (plus the docs.sandbox os.exit preload)",
+    used, "the require calls in runnable examples",
     mods, "client.bundle_mods in make.common.lua",
     "the bundler only follows static require literals from the client entry, so every "
       .. "module a Run button pulls in at runtime must be listed explicitly, and "

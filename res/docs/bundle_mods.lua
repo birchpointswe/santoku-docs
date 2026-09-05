@@ -1,5 +1,4 @@
 return {
-  "docs.sandbox",
   "santoku.array",
   "santoku.string",
   "santoku.table",

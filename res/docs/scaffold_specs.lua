@@ -13,7 +13,6 @@ local specs = {
     key = "lib",
     name = "my-lib",
     mod = "my_lib",
-    create = "create_lib",
     files = {
       "make.lua",
       "lib/%m.tk.lua",
@@ -26,7 +25,6 @@ local specs = {
   {
     key = "web",
     name = "my-app",
-    create = "create_web",
     files = {
       "make.lua",
       "client/bin/bundle.lua",
@@ -44,7 +42,6 @@ local specs = {
     key = "api",
     name = "my-api",
     mod = "my_api",
-    create = "create_api",
     files = {
       "make.lua",
       "res/server/migrations/0.0.1.sql",
@@ -58,7 +55,36 @@ local specs = {
   },
 }
 
+local function build (snapshot, dir_for)
+  local out = {}
+  for _, spec in ipairs(specs) do
+    local snap = snapshot(spec.key, {
+      name = spec.name,
+      dir = dir_for(spec.key),
+    })
+    local by_path = {}
+    for i = 1, #snap.files do
+      by_path[snap.files[i].path] = snap.files[i].code
+    end
+    local mod = spec.mod or spec.name
+    local subs = { ["%s"] = spec.name, ["%m"] = mod }
+    local files = {}
+    for _, pattern in ipairs(spec.files) do
+      local rel = string.gsub(pattern, "%%[sm]", subs)
+      local code = by_path[rel]
+      if not code then
+        error("scaffold file missing from the " .. spec.key ..
+          " boilerplate: " .. rel .. " (update res/docs/scaffold_specs.lua)")
+      end
+      files[#files + 1] = { path = rel, lang = lang(rel), code = code }
+    end
+    out[spec.key] = { name = spec.name, mod = mod, files = files, all = snap.all }
+  end
+  return out
+end
+
 return {
   specs = specs,
   lang = lang,
+  build = build,
 }

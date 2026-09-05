@@ -39,14 +39,6 @@ for _, rock in ipairs(banner_rocks) do
   arr.push(stable_files, "logo-" .. rock .. ".png")
 end
 
-local function pusher (out)
-  return function (...)
-    for i = 1, select("#", ...) do
-      out[#out + 1] = (select(i, ...))
-    end
-  end
-end
-
 local scaffold_meta = fs.runfile("res/docs/scaffold_specs.lua")
 
 local prism_components = {
@@ -69,45 +61,12 @@ end
 
 local function generate_scaffold (out_path, work_dir)
   local project = require("santoku.make.project")
-  local out = {}
-  local push = pusher(out)
-  push("return {\n")
-  for _, spec in ipairs(scaffold_meta.specs) do
-    local snap = project.snapshot(spec.key, {
-      name = spec.name,
-      dir = fs.join(work_dir, "scaffold-" .. spec.key),
-    })
-    local by_path = {}
-    for i = 1, #snap.files do
-      by_path[snap.files[i].path] = snap.files[i].code
-    end
-    local mod = spec.mod or spec.name
-    local subs = { ["%s"] = spec.name, ["%m"] = mod }
-    push("  ", spec.key, " = {\n")
-    push("    name = ", string.format("%q", spec.name), ",\n")
-    push("    mod = ", string.format("%q", mod), ",\n")
-    push("    files = {\n")
-    for _, pattern in ipairs(spec.files) do
-      local rel = string.gsub(pattern, "%%[sm]", subs)
-      local code = by_path[rel]
-      if not code then
-        error("scaffold file missing from the " .. spec.key ..
-          " boilerplate: " .. rel .. " (update res/docs/scaffold_specs.lua)")
-      end
-      push("      { path = ", string.format("%q", rel), ",\n")
-      push("        lang = ", string.format("%q", scaffold_meta.lang(rel)), ",\n")
-      push("        code = ", string.format("%q", code), " },\n")
-    end
-    push("    },\n")
-    push("    all = {\n")
-    for _, rel in ipairs(snap.all) do
-      push("      ", string.format("%q", rel), ",\n")
-    end
-    push("    },\n  },\n")
-  end
-  push("}\n")
+  local serialize = require("santoku.serialize")
+  local scaffold = scaffold_meta.build(project.snapshot, function (key)
+    return fs.join(work_dir, "scaffold-" .. key)
+  end)
   fs.mkdirp(fs.dirname(out_path))
-  fs.writefile(out_path, table.concat(out))
+  fs.writefile(out_path, "return " .. serialize(scaffold) .. "\n")
 end
 
 return {
@@ -127,6 +86,12 @@ return {
       site = site,
       public = public_files,
       stable = stable_files,
+      generated = {
+        "lib/docs/scaffold.lua",
+        "lib/docs/setup_script.lua",
+        "lib/docs/highlighted.lua",
+        "lib/docs/search_index.lua",
+      },
       check_links = true,
       ldflags = {
         "-sWASM_BIGINT",
@@ -185,8 +150,9 @@ return {
       },
       test = {
         dependencies = {
-          "santoku-make >= 5.0.24, < 6.0.0",
+          "santoku-make >= 5.1.0, < 6.0.0",
           "santoku-cli >= 2.12.0, < 3.0.0",
+          "santoku-fs >= 2.1.3, < 3.0.0",
           "santoku-web >= 2.2.3, < 3.0.0",
           "santoku-http >= 2.0.0, < 3.0.0",
           "santoku-sqlite >= 3.2.1, < 4.0.0",
@@ -364,8 +330,6 @@ return {
           "return { lang = \"bash\", code = " ..
           string.format("%q", fs.readfile(setup_sh_src)) .. " }\n")
       end)
-      submake.target({ fs.join(client_env.work_dir, "lua_modules.ok") },
-        { scaffold_src, setup_sh_mod })
       local function content_deps ()
         local deps = { content_src, scaffold_src, setup_sh_mod }
         for fp in fs.files(tabs_dir) do
@@ -375,22 +339,6 @@ return {
       end
       local gen_dir = fs.join(client_env.work_dir, "lib")
       local highlighted_src = fs.join(client_env.work_dir, "lib/docs/highlighted.lua")
-      for _, rendered in ipairs({
-        "client/static/llms.txt",
-        "client/static/llms-full.txt",
-        "client/static/sitemap.xml",
-      }) do
-        submake.target({ fs.join(client_env.work_dir, rendered) },
-          { scaffold_src, setup_sh_mod })
-      end
-      for fp in fs.files(fs.join(client_env.root_dir, "client/static"), true) do
-        if fp:match("index%.tk%.html$") then
-          local rendered = string.gsub(
-            string.sub(fp, #client_env.root_dir + 2), "%.tk", "")
-          submake.target({ fs.join(client_env.work_dir, rendered) },
-            { scaffold_src, setup_sh_mod, highlighted_src })
-        end
-      end
       local prism_names = {}
       for _, p in ipairs(prism_components) do
         prism_names[#prism_names + 1] = p.name
@@ -425,8 +373,6 @@ return {
           fs.writefile(search_index_src,
             fs.runfile(search_src)(req("docs.content"), req("docs.ids")))
         end)
-      submake.target({ fs.join(client_env.work_dir, "lua_modules.ok") },
-        { search_index_src })
     end,
 
   }

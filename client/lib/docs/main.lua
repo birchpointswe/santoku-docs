@@ -30,6 +30,11 @@ local function run_snippet (code)
   if not chunk then
     return lines, false, { tostring(syntax_err) }, 1
   end
+  local sandbox_os = setmetatable({
+    exit = function (code)
+      error("os.exit(" .. tostring(code or 0) .. ") called", 2)
+    end,
+  }, { __index = os })
   local fenv = setmetatable({
     print = function (...)
       local parts = {}
@@ -38,11 +43,13 @@ local function run_snippet (code)
       end
       lines[#lines + 1] = table.concat(parts, "\t")
     end,
-    os = setmetatable({
-      exit = function (code)
-        error("os.exit(" .. tostring(code or 0) .. ") called", 2)
-      end,
-    }, { __index = os }),
+    os = sandbox_os,
+    require = function (mod)
+      if mod == "os" then
+        return sandbox_os
+      end
+      return require(mod)
+    end,
   }, { __index = _G })
   setfenv(chunk, fenv)
   local function collect (ok, ...)
