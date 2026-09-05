@@ -17,7 +17,6 @@ return {
   "santoku.sqlite",
   "santoku.sqlite.db",
   "santoku.fs",
-  "santoku.fs.posix",
   "santoku.mtx",
   "santoku.csr",
   "santoku.ivec",
