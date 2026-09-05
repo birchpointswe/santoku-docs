@@ -1,18 +1,17 @@
--- luacheck: globals loadstring setfenv
-
 local test = require("santoku.test")
 local fs = require("santoku.fs")
 local env = require("santoku.env")
+local str = require("santoku.string")
+local arr = require("santoku.array")
+local lua = require("santoku.lua")
 local project = require("santoku.make.project")
-
-local loadchunk = loadstring or load
 
 local function fail (what, lines)
   local out = { "docs claim check failed: " .. what }
   for i = 1, #lines do
     out[#out + 1] = "  " .. lines[i]
   end
-  error(table.concat(out, "\n"), 0)
+  error(arr.concat(out, "\n"), 0)
 end
 
 local function sorted (set)
@@ -20,7 +19,7 @@ local function sorted (set)
   for k in pairs(set) do
     out[#out + 1] = k
   end
-  table.sort(out)
+  arr.sort(out)
   return out
 end
 
@@ -42,11 +41,11 @@ local function same (what, doc, doc_label, real, real_label, fix)
   end
   local lines = {}
   if #invented > 0 then
-    lines[#lines + 1] = doc_label .. " names " .. table.concat(invented, ", ")
+    lines[#lines + 1] = doc_label .. " names " .. arr.concat(invented, ", ")
       .. ", absent from " .. real_label
   end
   if #undocumented > 0 then
-    lines[#lines + 1] = real_label .. " has " .. table.concat(undocumented, ", ")
+    lines[#lines + 1] = real_label .. " has " .. arr.concat(undocumented, ", ")
       .. ", unnamed by " .. doc_label
   end
   lines[#lines + 1] = fix
@@ -59,28 +58,28 @@ local function subset (what, sub, sub_label, super, why, fix)
     return
   end
   fail(what, {
-    sub_label .. " uses " .. table.concat(extra, ", ") .. "; " .. why,
+    sub_label .. " uses " .. arr.concat(extra, ", ") .. "; " .. why,
     fix,
   })
 end
 
 local function names (src, pat)
   local out = {}
-  for name in string.gmatch(src, pat) do
+  for name in str.gmatch(src, pat) do
     out[name] = true
   end
   return out
 end
 
 local function brace_table (src, opener, where)
-  local s = string.find(src, opener, 1, true)
+  local s = str.find(src, opener, 1, true)
   if not s then
     fail("snippet parse", { where .. ": no " .. opener .. " found" })
   end
   local i = s + #opener - 1
   local depth, j = 0, i
   while true do
-    local c = string.sub(src, j, j)
+    local c = str.sub(src, j, j)
     if c == "" then
       fail("snippet parse", { where .. ": unbalanced braces after " .. opener })
     elseif c == "{" then
@@ -93,30 +92,23 @@ local function brace_table (src, opener, where)
       break
     end
   end
-  return string.sub(src, i + 1, j - 2)
+  return str.sub(src, i + 1, j - 2)
 end
 
 local function table_keys (body, where)
-  local src = string.gsub(body, "%.%.%.", "_")
+  local src = str.gsub(body, "%.%.%.", "_")
   local stub = {}
   setmetatable(stub, {
     __index = function () return stub end,
     __call = function () return stub end,
   })
   local sandbox = setmetatable({}, { __index = function () return stub end })
-  local chunk, cerr
-  if setfenv then
-    chunk, cerr = loadchunk("return {" .. src .. "\n}", where)
-    if chunk then
-      setfenv(chunk, sandbox)
-    end
-  else
-    chunk, cerr = loadchunk("return {" .. src .. "\n}", where, "t", sandbox)
+  local ok, chunk = pcall(lua.loadstring, "return {" .. src .. "\n}", sandbox)
+  if not ok then
+    fail("snippet parse", { where .. ": " .. tostring(chunk) })
   end
-  if not chunk then
-    fail("snippet parse", { where .. ": " .. tostring(cerr) })
-  end
-  local ok, t = pcall(chunk)
+  local t
+  ok, t = pcall(chunk)
   if not ok or type(t) ~= "table" then
     fail("snippet parse", { where .. ": " .. tostring(t) })
   end
@@ -142,11 +134,11 @@ local function module_source (mod)
 end
 
 local function split_template (src, where)
-  local tpl = string.match(src, "mustache%(%[%[(.*)%]%]%)")
+  local tpl = str.match(src, "mustache%(%[%[(.*)%]%]%)")
   if not tpl then
     fail("source parse", { where .. ": no mustache([[ ... ]]) template" })
   end
-  return tpl, (string.gsub(src, "mustache%(%[%[.*%]%]%)", "", 1))
+  return tpl, (str.gsub(src, "mustache%(%[%[.*%]%]%)", "", 1))
 end
 
 local function slots (tpl)
@@ -160,7 +152,7 @@ local function example (tab, tab_name, title)
     end
   end
   fail("tab structure", {
-    "tabs/" .. tab_name .. ".lua has no example titled " .. string.format("%q", title),
+    "tabs/" .. tab_name .. ".lua has no example titled " .. str.format("%q", title),
     "these checks key off titles; rename them here when you rename a section",
   })
 end
@@ -192,10 +184,10 @@ local tabs = {
 
 local function check_scaffold_listing (tab, tab_name, title, group, command)
   local code = example(tab, tab_name, title).code
-  local esc = string.gsub(group.name, "(%W)", "%%%1")
+  local esc = str.gsub(group.name, "(%W)", "%%%1")
   local doc = {}
-  for line in string.gmatch(code, "[^\n]+") do
-    if string.match(line, "^" .. esc .. "/") then
+  for line in str.gmatch(code, "[^\n]+") do
+    if str.match(line, "^" .. esc .. "/") then
       doc[line] = true
     end
   end
@@ -211,8 +203,8 @@ end
 
 test("setup-toku.sh pins match the santoku-cli setup pins", function ()
   local src = fs.readfile("res/setup-toku.sh")
-  local lua_v = string.match(src, "\nLUA_VERSION=(%S+)") or string.match(src, "^LUA_VERSION=(%S+)")
-  local lr_v = string.match(src, "\nLUAROCKS_VERSION=(%S+)")
+  local lua_v = str.match(src, "\nLUA_VERSION=(%S+)") or str.match(src, "^LUA_VERSION=(%S+)")
+  local lr_v = str.match(src, "\nLUAROCKS_VERSION=(%S+)")
   local cli = require("santoku.cli.setup")
   if lua_v ~= cli.pins.lua.version or lr_v ~= cli.pins.luarocks.version then
     fail("setup-toku.sh pins", {
@@ -286,7 +278,7 @@ end)
 test("documented santoku.web.pwa.manifest options match the installed module", function ()
   local src = module_source("santoku.web.pwa.manifest")
   local tpl, rest = split_template(src, "santoku.web.pwa.manifest")
-  local real = slots((string.gsub(tpl, "{{#icons}}.*{{/icons}}", "")))
+  local real = slots((str.gsub(tpl, "{{#icons}}.*{{/icons}}", "")))
   real.icons = true
   local dwhere = "santoku.web.pwa.manifest defaults"
   local defaults = table_keys(brace_table(rest, "defaults = {", dwhere), dwhere)
@@ -348,7 +340,7 @@ test("the documented santoku.sqlite.sync surface exists on the installed module"
   local positions = {}
   local pos = 1
   while true do
-    local s = string.find(src, "return {", pos, true)
+    local s = str.find(src, "return {", pos, true)
     if not s then
       break
     end
@@ -360,7 +352,7 @@ test("the documented santoku.sqlite.sync surface exists on the installed module"
   end
   local real = {}
   for _, p in ipairs({ positions[#positions - 1], positions[#positions] }) do
-    local body = brace_table(string.sub(src, p), "return {", "santoku.sqlite.sync")
+    local body = brace_table(str.sub(src, p), "return {", "santoku.sqlite.sync")
     for k in pairs(table_keys(body, "santoku.sqlite.sync")) do
       real[k] = true
     end
@@ -408,8 +400,8 @@ end)
 
 test("example dependency constraints admit the installed rock versions", function ()
   local rocks_dir
-  for entry in string.gmatch(package.path, "[^;]+") do
-    local prefix = string.match(entry, "^(.*)/share/lua/5%.1/%?%.lua$")
+  for entry in str.gmatch(package.path, "[^;]+") do
+    local prefix = str.match(entry, "^(.*)/share/lua/5%.1/%?%.lua$")
     if prefix and fs.exists(fs.join(prefix, "lib/luarocks/rocks-5.1")) then
       rocks_dir = fs.join(prefix, "lib/luarocks/rocks-5.1")
       break
@@ -424,7 +416,7 @@ test("example dependency constraints admit the installed rock versions", functio
       return nil
     end
     for name in fs.dir(dir) do
-      local a, b, c = string.match(name, "^(%d+)%.(%d+)%.(%d+)%-%d+$")
+      local a, b, c = str.match(name, "^(%d+)%.(%d+)%.(%d+)%-%d+$")
       if a then
         return tonumber(a), tonumber(b), tonumber(c)
       end
@@ -435,7 +427,7 @@ test("example dependency constraints admit the installed rock versions", functio
     if tab.content then
       for j = 1, #tab.content.examples do
         local code = tab.content.examples[j].code
-        for rock, mi1, mi2, mi3, mx in string.gmatch(code,
+        for rock, mi1, mi2, mi3, mx in str.gmatch(code,
           "\"(santoku[%w%-]*) >= (%d+)%.(%d+)%.(%d+), < (%d+)%.")
         do
           local a, b, c = installed_version(rock)
