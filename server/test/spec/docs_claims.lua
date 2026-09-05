@@ -424,7 +424,7 @@ end)
 
 test("client.bundle_mods matches what runnable examples require", function ()
   local mods = {}
-  for _, m in ipairs(fs.runfile("make.common.lua").env.client.bundle_mods) do
+  for _, m in ipairs(fs.runfile("res/docs/bundle_mods.lua")) do
     mods[m] = true
   end
   local preloads = { ["docs.sandbox"] = true }
