@@ -1,16 +1,3 @@
-local file = require("docs.scaffold_file")
-
-local function scaffolded (kind, path, title, desc)
-  local f = file(kind, path)
-  return {
-    title = title,
-    desc = desc,
-    runnable = false,
-    lang = f.lang,
-    code = f.code,
-  }
-end
-
 return {
 
   intro = table.concat({
@@ -23,9 +10,8 @@ return {
     "from the container image santoku-make ships, with your code mounted in. Both ",
     "are covered first below, and ",
     "everything after that is identical either way. Then scaffold, build and start the ",
-    "project before changing anything, and read it file by file. Every file shown is ",
-    "the real output of toku init --web, reproduced straight from the boilerplate the ",
-    "CLI ships, so it is exactly what you get. The example project is called my-app. ",
+    "project before changing anything, and read it file by file. ",
+    "The example project is called my-app. ",
     "What it scaffolds is a working todo app with a client-side SQLite database, tag ",
     "parsing, JSON export and a real sync endpoint, in eighteen files.",
   }),
@@ -188,19 +174,6 @@ $ toku start --fg              # foreground, error log on stderr
 ]],
     },
 
-    scaffolded("web", "make.lua",
-      "make.lua: the whole descriptor",
-      table.concat({
-        "One file configures all three programs. Each of client and server declares ",
-        "its own dependency list, because they resolve into separate private rock ",
-        "trees: the client's are compiled to WebAssembly, the server's are native. ",
-        "build.dependencies are the rocks needed by the build itself rather than by ",
-        "the shipped app. The nginx block is read directly by the config template, ",
-        "and modules lists the server modules nginx will load. client.files = false ",
-        "means the client ships no res files of its own. The one entry worth ",
-        "understanding before you change anything is the rules block, covered next.",
-      })),
-
     {
       title = "--pre-js and wrap_events, required by the sqlite worker",
       desc = table.concat({
@@ -226,112 +199,6 @@ rules = {
 },
 ]],
     },
-
-    scaffolded("web", "client/res/pre.tk.js",
-      "client/res/pre.tk.js: the whole file",
-      table.concat({
-        "This is the file --pre-js points at, in its entirety. The .tk means it is ",
-        "rendered at build time into res/pre.js, which is the name the ldflags entry ",
-        "refers to.",
-      })),
-
-    scaffolded("web", "client/bin/bundle.lua",
-      "client/bin/bundle.lua: one entry point, two contexts",
-      table.concat({
-        "Everything in client/bin becomes a page bundle compiled to WebAssembly. ",
-        "This single entry point is loaded twice, once on the main thread and once in ",
-        "the database worker, and dispatches on whether a document exists. That is ",
-        "why one bundle serves as both page and database worker. The bundler finds ",
-        "the modules it requires by scanning the source textually, so literal ",
-        "requires like these need no extra configuration; only requires computed at ",
-        "runtime need listing in client.bundle_mods.",
-      })),
-
-    scaffolded("web", "client/lib/%s/main.lua",
-      "The client entry module, and the DOM command buffer",
-      table.concat({
-        "Ordinary Lua running in the browser. Two things here are worth copying as ",
-        "patterns. First, the DOM is driven through a command buffer: dom.html, ",
-        "dom.text and dom.prop queue mutations and nothing is applied until ",
-        "dom.flush(), while dom.read runs immediately and does NOT flush queued ",
-        "writes, which is why add_current reads the input value before queueing the ",
-        "write that clears it. Second, every handler runs inside async(...), because ",
-        "calls into the database worker are asynchronous underneath even though they ",
-        "read like ordinary function calls. Note also that ready:await() is destructured ",
-        "as a single ok value here; await returns two values, so if you want the ",
-        "result as well you must bind both.",
-      })),
-
-    scaffolded("web", "client/lib/%s/db.tk.lua",
-      "The client database, and how migrations get into the browser",
-      table.concat({
-        "This module runs in the dedicated worker and owns the SQLite database. The ",
-        "template header at the top is the important part: it reads every file in ",
-        "res/client/migrations at BUILD time and serializes them into the module, ",
-        "because a browser has no filesystem to read them from at runtime. Add a ",
-        "migration file and it is embedded on the next build. Everything below the ",
-        "header is ordinary santoku-sqlite: statements are prepared once into closures ",
-        "(db.getter, db.runner, db.all, db.iter) and multi-statement operations are ",
-        "wrapped in db.transaction. The table returned from the callback is exactly ",
-        "the API the main thread sees through the proxy.",
-      })),
-
-    scaffolded("web", "client/static/index.html",
-      "client/static/index.html: the page shell",
-      table.concat({
-        "Files under client/static are served as-is. This one is plain HTML with no ",
-        "template, and the only line that matters structurally is the bundle-js meta ",
-        "tag: main.lua reads it to learn its own bundle URL so it can spawn the ",
-        "database worker from the same file. Everything else is markup and CSS you ",
-        "will replace.",
-      })),
-
-    scaffolded("web", "server/nginx.tk.conf",
-      "server/nginx.tk.conf: the config and its template environment",
-      table.concat({
-        "A real nginx configuration with template holes, not a config assembled in ",
-        "Lua. The names available inside <% %> are what the engine injects: the nginx ",
-        "table from your descriptor (as nginx.nginx, hence the n alias on line one), ",
-        "openresty_dir, lua_package_path and lua_package_cpath which point at this ",
-        "environment's private rock tree, modules which maps a module name to the file ",
-        "nginx should load, and hashed which maps a logical asset name to its ",
-        "content-hashed filename. That last one is how cache busting stays correct ",
-        "without you tracking hashes by hand, and it pairs with the immutable ",
-        "Cache-Control rule at the bottom of the file.",
-      })),
-
-    scaffolded("web", "server/lib/%s/web/init.lua",
-      "The server side: init",
-      table.concat({
-        "Loaded once per worker by init_by_lua_file. It opens the server database and ",
-        "stashes the handle in package.loaded under a name the request handlers can ",
-        "require, which is the standard OpenResty way to share an initialized resource ",
-        "across requests without reopening it each time. Server code is ordinary Lua ",
-        "inside OpenResty, so the resty ecosystem is available alongside santoku.",
-      })),
-
-    scaffolded("web", "server/lib/%s/web/sync.lua",
-      "The server side: the sync endpoint",
-      table.concat({
-        "The whole of the endpoint nginx routes /sync to. It reads the client's ",
-        "changes from the request body and a since watermark from the query string, ",
-        "hands both to the server database module, and writes back JSON. The ",
-        "reconciliation itself lives in server/lib/my-app/db.tk.lua. Note that server ",
-        "specs run under the OpenResty interpreter when OPENRESTY_DIR resolves, not ",
-        "under a separate system Lua, so a rock that loads in nginx also loads in your ",
-        "tests.",
-      })),
-
-    scaffolded("web", "res/client/migrations/0.0.1.sql",
-      "Migrations, on both sides",
-      table.concat({
-        "A web project has two migration sets, res/client for the browser's database ",
-        "and res/server for the server's. Both use santoku-sqlite-migrate: applied in ",
-        "version order, forward-only, each exactly once, in a single transaction. The ",
-        "scaffold ships three client migrations, and this first one is not the ",
-        "effective schema; 0.0.2 and 0.0.3 evolve it, which is itself the pattern ",
-        "being demonstrated. Add 0.0.4.sql beside them and it applies on next run.",
-      })),
 
     {
       title = "Going to production: TLS",

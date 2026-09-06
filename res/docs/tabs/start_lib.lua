@@ -1,16 +1,3 @@
-local file = require("docs.scaffold_file")
-
-local function scaffolded (kind, path, title, desc)
-  local f = file(kind, path)
-  return {
-    title = title,
-    desc = desc,
-    runnable = false,
-    lang = f.lang,
-    code = f.code,
-  }
-end
-
 return {
 
   intro = table.concat({
@@ -20,13 +7,10 @@ return {
     "it. Beyond toku, decide how you get the rest of the toolchain: install it on ",
     "your machine, or run toku from the container image santoku-make ships, with ",
     "your code mounted in. Both are covered first, and everything after that is ",
-    "identical either way. Every ",
-    "file shown below is the real output of toku init, reproduced here straight from ",
-    "the boilerplate the CLI ships, so what you read is exactly what you get. The ",
+    "identical either way. The ",
     "example project is called my-lib; toku init substitutes your own name ",
     "everywhere, including inside file contents and directory names. Work through ",
-    "it in order: toolchain, scaffold, the development loop, then the descriptor, ",
-    "the code, the tests, and publishing.",
+    "it in order: toolchain, scaffold, the development loop, then publishing.",
   }),
 
   examples = {
@@ -157,31 +141,6 @@ $ toku exec -- lua -e 'print(require("my_lib"))'   # note the --, toku parses -e
 ]],
     },
 
-    scaffolded("lib", "make.lua",
-      "make.lua: the whole descriptor",
-      table.concat({
-        "The descriptor is plain Lua returning a table with one env field, and it is ",
-        "the only configuration a library needs. name and version feed the generated ",
-        "rockspec. dependencies passes through to luarocks verbatim, and ",
-        "test.dependencies adds rocks the test tree needs but the shipped rock does ",
-        "not. cflags reaches the C compiler for any C sources; note that it locates ",
-        "santoku's headers by asking luarocks where the rock lives rather than ",
-        "hardcoding a path. This is everything toku init gives you, and it is enough to ",
-        "build, test and install locally. Publishing takes two small edits to fields ",
-        "that are already there: see the publishing example below.",
-      })),
-
-    scaffolded("lib", "lib/%m.tk.lua",
-      "The library module, and what .tk means",
-      table.concat({
-        "Any file with .tk in its name is a build-time template: it is rendered by ",
-        "santoku-template before it is installed, with the descriptor's env available ",
-        "as globals, and the .tk is stripped from the output name. So this file ships ",
-        "as lib/my_lib.lua. That is how build-time constants reach runtime code ",
-        "without a config file. A file without .tk is copied verbatim, so use ",
-        "templates only where you need them.",
-      })),
-
     {
       title = "Editor support for .tk templates",
       desc = table.concat({
@@ -234,45 +193,6 @@ vim.treesitter.query.add_directive("toku-inject!", function (_, _, source, _, me
 end, { all = true })
 ]],
     },
-
-    scaffolded("lib", "lib/%m/capi.c",
-      "A C extension in the same rock",
-      table.concat({
-        "C sources under lib are compiled and linked as Lua modules by the generated ",
-        "Makefile, with no extra configuration: dropping a .c file beside your Lua ",
-        "sources is the whole workflow. The module name follows the path, so this ",
-        "builds my-lib.capi. santoku's own C libraries use this exact layout.",
-      })),
-
-    scaffolded("lib", "bin/%s.lua",
-      "An executable entry point",
-      table.concat({
-        "Files in bin become executables installed by luarocks. They are ordinary Lua ",
-        "scripts. toku install --bundled goes further and compiles each one, together ",
-        "with every module it requires, into a single native binary via santoku-bundle ",
-        "and your C compiler, installed into PREFIX/bin. That is how the toku command ",
-        "itself is built.",
-      })),
-
-    scaffolded("lib", "test/spec/%m.lua",
-      "The spec, and how the runner finds it",
-      table.concat({
-        "toku test discovers test/spec recursively; there is no registration step and ",
-        "no config. Each file runs in its own interpreter process, so one spec cannot ",
-        "leak state into another. santoku.test takes a tag and a function and nests ",
-        "arbitrarily; a failing assertion prints the tag chain, the error and a ",
-        "traceback. Every spec runs by default. Pass -s to stop at the first failure, ",
-        "--single to run one file, or -m to filter by Lua pattern.",
-      })),
-
-    scaffolded("lib", "res/migrations/0.0.1.sql",
-      "Versioned SQL migrations",
-      table.concat({
-        "Files under res are installed with the rock and reachable at runtime. The ",
-        "boilerplate uses that for santoku-sqlite-migrate: migrations are named by ",
-        "version, applied in version order, forward-only, each exactly once, inside a ",
-        "single transaction. Add 0.0.2.sql beside this one and it applies on next run.",
-      })),
 
     {
       title = "Publishing: what you must add, and what toku release does",

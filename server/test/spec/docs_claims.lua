@@ -80,10 +80,6 @@ end)
 local req = fs.runfile("res/docs/load.lua")({
   readfile = fs.readfile,
   root_dir = ".",
-  preload = {
-    ["docs.scaffold"] = scaffold,
-    ["docs.setup_script"] = { lang = "bash", code = fs.readfile("res/setup-toku.sh") },
-  },
 })
 
 local content = req("docs.content")

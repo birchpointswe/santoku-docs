@@ -1,13 +1,11 @@
-local script = require("docs.setup_script")
 
 return {
 
   intro = table.concat({
     "Everything on this site is driven by toku, the santoku command line, and toku ",
     "requires a one-time setup before it will build anything. The sanctioned install is ",
-    "setup-toku.sh, the script this page both renders in full and serves for download at ",
-    "https://santoku.dev/setup-toku.sh: both come from the same file, so what you read ",
-    "here is exactly what you run. The script builds lua 5.1.5 and luarocks 3.13.0 from ",
+    "setup-toku.sh, served at https://santoku.dev/setup-toku.sh. ",
+    "The script builds lua 5.1.5 and luarocks 3.13.0 from ",
     "sha256-verified sources into ~/.local/share/toku (honouring XDG_DATA_HOME), installs ",
     "santoku-cli there, and stores a copy of itself in that tree for later repairs and ",
     "upgrades. It writes nothing else: no symlinks, no shell rc edits, nothing outside ",
@@ -20,15 +18,13 @@ return {
   examples = {
 
     {
-      title = "Download, read, then run",
+      title = "Download and run",
       desc = table.concat({
-        "Three steps, in this order: download the script, read it, run it. Do not pipe ",
-        "it from the network into a shell; the point of a short auditable script is that ",
-        "you look at it first, and its full text is reproduced below. When it finishes ",
-        "it prints where everything landed and the optional PATH line. Wiring PATH is ",
-        "your call and yours to do; the script never edits shell configuration. Finish ",
-        "by running toku doctor, which reports the mode, the resolved lua and luarocks, ",
-        "and PATH wiring, and exits nonzero if anything is wrong.",
+        "Download the script, run it, and finish with toku doctor. When setup ",
+        "completes it prints where everything landed and the optional PATH line. ",
+        "Wiring PATH is yours to do; the script never edits shell configuration. ",
+        "toku doctor reports the mode, the resolved lua and luarocks, and PATH ",
+        "wiring, and exits nonzero if anything is wrong.",
       }),
       runnable = false,
       lang = "text",
@@ -54,22 +50,6 @@ toku doctor
   ...
 no problems found
 ]],
-    },
-
-    {
-      title = "setup-toku.sh, in full",
-      desc = table.concat({
-        "The complete script, embedded at build time from the same file the download ",
-        "serves, so this text and the downloaded file cannot drift. The build also ",
-        "fails if the versions pinned here stop matching the ones the installed ",
-        "santoku-cli expects. Beyond the build itself, the script applies three small ",
-        "portability patches (a TMPDIR-aware lua tmpnam for systems without a writable ",
-        "/tmp, and two luarocks fixes for Android), and every download is verified ",
-        "against a pinned sha256 before anything is built.",
-      }),
-      runnable = false,
-      lang = script.lang,
-      code = script.code,
     },
 
     {

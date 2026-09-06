@@ -39,8 +39,6 @@ for _, rock in ipairs(banner_rocks) do
   arr.push(stable_files, "logo-" .. rock .. ".png")
 end
 
-local scaffold_meta = fs.runfile("res/docs/scaffold_specs.lua")
-
 local prism_components = {
   { name = "core", sha256 = "6caad316dd991f24f8004e0b9c19c055cb5829ff65e973fbee406f96d81b8e7e" },
   { name = "markup", sha256 = "879fc9d256c352d980e053857fa707330853b8bfb67ce284ea661a24dec5756e" },
@@ -57,16 +55,6 @@ local prism_pre_js = {}
 for _, p in ipairs(prism_components) do
   prism_pre_js[#prism_pre_js + 1] = "--pre-js"
   prism_pre_js[#prism_pre_js + 1] = "../../../vendor/prism-" .. p.name .. ".min.js"
-end
-
-local function generate_scaffold (out_path, work_dir)
-  local project = require("santoku.make.project")
-  local serialize = require("santoku.serialize")
-  local scaffold = scaffold_meta.build(project.snapshot, function (key)
-    return fs.join(work_dir, "scaffold-" .. key)
-  end)
-  fs.mkdirp(fs.dirname(out_path))
-  fs.writefile(out_path, "return " .. serialize(scaffold) .. "\n")
 end
 
 return {
@@ -87,8 +75,6 @@ return {
       public = public_files,
       stable = stable_files,
       generated = {
-        "lib/docs/scaffold.lua",
-        "lib/docs/setup_script.lua",
         "lib/docs/highlighted.lua",
         "lib/docs/search_index.lua",
       },
@@ -307,32 +293,8 @@ return {
         arr.flatten({ prism_files, { codejar_global } }))
       local content_src = fs.join(client_env.root_dir, "res/docs/content.lua")
       local tabs_dir = fs.join(client_env.root_dir, "res/docs/tabs")
-      local scaffold_src = fs.join(client_env.work_dir, "lib/docs/scaffold.lua")
-      local scaffold_deps = {}
-      for _, mod in ipairs({
-        "santoku.make.project.lib",
-        "santoku.make.project.web",
-        "santoku.make.project.api",
-      }) do
-        local fp = env.searchpath(mod)
-        if fp then
-          scaffold_deps[#scaffold_deps + 1] = fp
-        end
-      end
-      local scaffold_work = client_env.work_dir
-      submake.target({ scaffold_src }, scaffold_deps, function ()
-        generate_scaffold(scaffold_src, scaffold_work)
-      end)
-      local setup_sh_src = fs.join(client_env.root_dir, "res/setup-toku.sh")
-      local setup_sh_mod = fs.join(client_env.work_dir, "lib/docs/setup_script.lua")
-      submake.target({ setup_sh_mod }, { setup_sh_src }, function ()
-        fs.mkdirp(fs.dirname(setup_sh_mod))
-        fs.writefile(setup_sh_mod,
-          "return { lang = \"bash\", code = " ..
-          string.format("%q", fs.readfile(setup_sh_src)) .. " }\n")
-      end)
       local function content_deps ()
-        local deps = { content_src, scaffold_src, setup_sh_mod }
+        local deps = { content_src }
         for fp in fs.files(tabs_dir) do
           deps[#deps + 1] = fp
         end
