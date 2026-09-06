@@ -314,7 +314,7 @@ return {
         "santoku.make.project.web",
         "santoku.make.project.api",
       }) do
-        local fp = env.searchpath(mod, package.path)
+        local fp = env.searchpath(mod)
         if fp then
           scaffold_deps[#scaffold_deps + 1] = fp
         end
