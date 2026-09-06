@@ -60,19 +60,14 @@ local function run_snippet (code)
     end
     return ok, vals, n
   end
-  local has_hook = type(debug) == "table" and type(debug.sethook) == "function"
-  if has_hook then
-    debug.sethook(function ()
-      error("instruction limit exceeded", 2)
-    end, "", 10000000)
-  end
+  debug.sethook(function ()
+    error("instruction limit exceeded", 2)
+  end, "", 10000000)
   local real_print = _G.print
   _G.print = fenv.print
   local ok, vals, nvals = collect(pcall(chunk))
   _G.print = real_print
-  if has_hook then
-    debug.sethook()
-  end
+  debug.sethook()
   return lines, ok, vals, nvals
 end
 
