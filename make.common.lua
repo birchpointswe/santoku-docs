@@ -150,6 +150,7 @@ return {
       },
       test = {
         dependencies = {
+          "santoku >= 2.0.6, < 3.0.0",
           "santoku-make >= 5.1.0, < 6.0.0",
           "santoku-cli >= 2.12.0, < 3.0.0",
           "santoku-fs >= 2.1.3, < 3.0.0",

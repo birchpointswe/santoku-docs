@@ -1,5 +1,6 @@
 local test = require("santoku.test")
 local fs = require("santoku.fs")
+local env = require("santoku.env")
 local str = require("santoku.string")
 local arr = require("santoku.array")
 local project = require("santoku.make.project")
@@ -167,7 +168,7 @@ end)
 
 test("example dependency constraints admit the installed rock versions", function ()
   local rocks_dir
-  for entry in str.gmatch(package.path, "[^;]+") do
+  for entry in str.gmatch(env.path(), "[^;]+") do
     local prefix = str.match(entry, "^(.*)/share/lua/5%.1/%?%.lua$")
     if prefix and fs.exists(fs.join(prefix, "lib/luarocks/rocks-5.1")) then
       rocks_dir = fs.join(prefix, "lib/luarocks/rocks-5.1")
@@ -175,7 +176,7 @@ test("example dependency constraints admit the installed rock versions", functio
     end
   end
   if not rocks_dir then
-    fail("rock tree lookup", { "no luarocks tree on package.path" })
+    fail("rock tree lookup", { "no luarocks tree on the lua path" })
   end
   local function installed_version (rock)
     local dir = fs.join(rocks_dir, rock)
