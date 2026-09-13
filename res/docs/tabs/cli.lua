@@ -9,8 +9,8 @@ return {
     "tree, dependencies are installed with luarocks into a private lua_modules, specs run ",
     "against that tree, and the same tree feeds install and the luarocks release flow. ",
     "The standalone utilities (template, bundle, lua) expose santoku-template, ",
-    "santoku-bundle, and an instrumented interpreter directly. This tab is a guided tour ",
-    "of the whole surface, basics to advanced. toku runs processes and touches the real ",
+    "santoku-bundle, and an instrumented interpreter directly. This tab covers the whole ",
+    "surface, basics to advanced. toku runs processes and touches the real ",
     "filesystem, so the shell examples are display only; the make.lua descriptor example ",
     "is plain Lua and runs in the page.",
   }),
@@ -430,8 +430,8 @@ $ toku test --single server/test/spec/my-app.lua
       desc = table.concat({
         "Installs the test dependencies if needed, then runs an arbitrary command in ",
         "build/default/test with LUA_PATH and LUA_CPATH pointing at that tree's ",
-        "lua_modules, so ad-hoc scripts see exactly what the specs see: the rendered ",
-        "sources and the pinned rocks.",
+        "lua_modules, so ad-hoc scripts run against the same tree the specs do: the ",
+        "rendered sources and the pinned rocks.",
       }),
       runnable = false,
       code = [[

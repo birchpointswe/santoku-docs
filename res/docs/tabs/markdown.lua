@@ -5,7 +5,7 @@ return {
     "that exposes a single function, to_html, taking a Markdown string and returning ",
     "the rendered HTML string. The binding constructs Sundown's standard HTML renderer ",
     "with every extension flag and every render flag set to zero and a block nesting ",
-    "depth of 16, so what you get is base Markdown exactly: ATX and setext headings, ",
+    "depth of 16, so it renders base Markdown only: ATX and setext headings, ",
     "paragraphs, lists, blockquotes, indented code, emphasis, links, images, ",
     "angle-bracket autolinks, backslash escapes, and raw HTML passthrough, with the ",
     "Sundown extras (tables, fenced code, bare-URL autolinking, strikethrough, ",
@@ -202,7 +202,7 @@ return md.to_html('say "hello"')
 
     {
       title = "Raw HTML passes through",
-      desc = "With all render flags at zero, inline tags and block-level HTML are emitted verbatim, not escaped. That is a feature for trusted prose and a reason to sanitize or pre-escape untrusted input before rendering.",
+      desc = "With all render flags at zero, inline tags and block-level HTML are emitted verbatim, not escaped. Useful for trusted prose, and a reason to sanitize or pre-escape untrusted input before rendering.",
       code = [[
 local md = require("santoku.markdown")
 print(md.to_html("inline <span class=\"hl\">spans</span> survive"))
@@ -211,7 +211,7 @@ return md.to_html("<div class=\"note\">\nA whole block, kept <em>as is</em>.\n</
     },
 
     {
-      title = "What the extensions being off looks like",
+      title = "With the extensions off",
       desc = "Fenced code, pipe tables, and strikethrough are Sundown extensions this binding does not enable, so their syntax renders as ordinary text. Indented code blocks are the supported form.",
       code = [[
 local md = require("santoku.markdown")
@@ -252,7 +252,7 @@ return md.to_html(doc)
 
     {
       title = "Data to page with santoku.mustache",
-      desc = "The two renderers chain naturally: mustache turns a table into Markdown source, to_html turns that into markup. This is the shape of a changelog or notes pipeline.",
+      desc = "The two renderers chain: mustache turns a table into Markdown source, to_html turns that into markup. This is the shape of a changelog or notes pipeline.",
       code = [[
 local md = require("santoku.markdown")
 local mch = require("santoku.mustache")

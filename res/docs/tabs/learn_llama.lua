@@ -85,7 +85,7 @@ print("written in place:", out:size())
     },
 
     {
-      title = "the point of it all: dense codes for the learn pipeline",
+      title = "dense codes for the learn pipeline",
       desc = table.concat({
         "The embeddings stand in for santoku-learn's sparse n-gram codes: encode each ",
         "split, wrap the fvec in an mtx, and hand it to optimize.krr. Free each code ",

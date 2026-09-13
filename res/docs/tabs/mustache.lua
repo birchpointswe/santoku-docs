@@ -9,8 +9,8 @@ return {
     "string. On top of core Mustache (variables, dotted paths, sections, inversion, ",
     "iteration, partials, comments, custom delimiters) the extension set adds equality and ",
     "comparison guards on tag names, object iteration with {{*}}, and escaped-dot and JSON ",
-    "pointer syntax for awkward keys. It is what toku web projects use for nginx config ",
-    "generation and HTML template packs; ",
+    "pointer syntax for awkward keys. toku web projects use it for HTML template packs ",
+    "and generated config; ",
     "it is distinct from santoku-template, which expands <% ... %> Lua blocks at ",
     "build time.",
   }),
@@ -19,7 +19,7 @@ return {
 
     {
       title = "Compile once, render many",
-      desc = "Variables, dot notation, and missing keys. Numbers format through %.14g, booleans render as true or false, and the template is captured at compile time so one closure serves many contexts.",
+      desc = "Variables, dot notation, and missing keys. Numbers format through %.14g, booleans render as true or false, and the template is captured at compile time.",
       code = [[
 local mch = require("santoku.mustache")
 local render = mch("{{greeting}} {{target}}")
@@ -294,7 +294,7 @@ return conf({
 
     {
       title = "The nginx pipeline",
-      desc = "A server/nginx.tk.conf is a santoku-template block expanded by the build harness: it computes hashed asset names, then hands res/nginx.conf to santoku.mustache with the project config as context. That conf reaches nested config with dotted paths like {{nginx.port}} and {{nginx.error_log}}, and uses escaped dots, {{modules.my-app\\.search\\.init}}, to index a module table whose keys are full dotted module names.",
+      desc = "A server/nginx.tk.conf is a santoku-template block expanded by the build harness, and one shape it can take is to compute hashed asset names and then render a mustache conf source with the project config as context. Such a conf reaches nested config with dotted paths like {{nginx.port}} and {{nginx.error_log}}, and uses escaped dots, {{modules.my-app\\.search\\.init}}, to index a module table whose keys are full dotted module names.",
       code = [[
 <%
   local ctx = nginx
@@ -314,7 +314,7 @@ return conf({
 
     {
       title = "Template packs with mutual partials",
-      desc = "The loader below reads every file under res/web/templates, keys it by dotted path, then compiles each one with the whole set as its partials table, so any template can include any sibling with {{>path.name}}. The runtime branch goes further: it mustaches out a Lua module that embeds the serialized pack and recompiles it on load.",
+      desc = "The loader below reads every file under res/web/templates, keys it by dotted path, then compiles each one with the whole set as its partials table, so any template can include any sibling with {{>path.name}}. The runtime branch instead renders a Lua module that embeds the serialized pack and recompiles it on load.",
       code = [=[
 local fs = require("santoku.fs")
 local str = require("santoku.string")

@@ -219,8 +219,7 @@ return S2:col("id"):size()
       desc = table.concat({
         "Pass byte ranges as a pvec to mask regions out of matching; a second return ",
         "reports per-region whether the automaton recognized the excluded text, which ",
-        "is how a suggester skips already-linked entities while learning which ones it ",
-        "knows.",
+        "is how a suggester skips already-linked entities.",
       }),
       code = [[
 local aho = require("santoku.learn.aho")
@@ -406,7 +405,7 @@ return ps:size()
         "n-grams for training texts and queries in one call (shared column ids), ",
         "L2-normalize each document in plain Lua, score each query by mean cosine ",
         "similarity to every class, and hand the score matrix to a single-label ",
-        "decider for the final call.",
+        "decider.",
       }),
       code = [[
 local tokenizer = require("santoku.learn.tokenizer")
@@ -538,9 +537,9 @@ return P:offsets():size() - 1
     },
 
     {
-      title = "santoku.learn.optimize.krr: the front door",
+      title = "santoku.learn.optimize.krr: the supervised entry point",
       desc = table.concat({
-        "The supervised spine on the IMDB sentiment corpus: tokenize byte and word ",
+        "The supervised path on the IMDB sentiment corpus: tokenize byte and word ",
         "blocks, encode, solve ridge, score through a calibrated decider, then persist ",
         "the whole deployment as one bundle and reload it. The full pipeline this ",
         "distills: ",
@@ -658,7 +657,7 @@ return f1
     {
       title = "regression: santoku.learn.evaluator",
       desc = table.concat({
-        "The same spine does regression: pass targets instead of labels, mix ",
+        "The same path does regression: pass targets instead of labels, mix ",
         "standardized continuous columns with booleanized bits as blocks, and score ",
         "with regress_accuracy (normalized MAE and friends). The full pipeline: ",
         "https://github.com/birchpointswe/lua-santoku-learn/blob/master/test/spec/santoku/learn/regress/housing.lua",

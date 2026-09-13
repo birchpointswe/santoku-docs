@@ -12,8 +12,8 @@ return {
     "languages. toku web builds minify shipped HTML with ",
     "minify_html and transform_inline, the component framework splits fragments with ",
     "component_parts, html_text and json_fields reduce documents to indexable text, ",
-    "and strip backs comment policy enforcement in commit hooks. The tour ",
-    "below runs basics to advanced: single patterns, then grammars, then the scanners, ",
+    "and strip backs comment policy enforcement in commit hooks. The examples ",
+    "below run from basics to advanced: single patterns, then grammars, then the scanners, ",
     "then the stripper and its safety guarantees.",
   }),
 
@@ -65,7 +65,7 @@ return re.match("a b,c", "{ (!',' .)* }")
     {
       title = "re captures: position, table, named, substitution",
       desc = table.concat({
-        "The capture zoo: {} captures the current position, {| ... |} collects into a table, ",
+        "The capture forms: {} captures the current position, {| ... |} collects into a table, ",
         "{:name: ... :} names an entry inside that table, and {~ ... ~} is a substitution ",
         "capture that rewrites matched text in place. This fork keeps only literal string ",
         "and number transforms (patt -> 'x'); function transforms and user definition ",
@@ -120,8 +120,8 @@ return re.match("boo boo", "{:w: %a+ :} ' ' =w")
       title = "re grammars: recursion",
       desc = table.concat({
         "A pattern of the form name <- expression defines a grammar rule, and rules can ",
-        "refer to themselves. This is the step regexes cannot take: balanced, nested ",
-        "structure. One line matches arbitrarily nested parentheses.",
+        "refer to themselves, which is how a grammar matches balanced, nested structure ",
+        "that a regex cannot. One line matches arbitrarily nested parentheses.",
       }),
       code = [[
 local re = require("santoku.re")
@@ -212,7 +212,7 @@ return re.pmatch("%a+", "hello123")
         "capture family C, Cc, Cp, Cs, Ct, Cg, Cb, Cmt, Carg, Cf, plus match, locale, ",
         "type, utfR, and setmaxstack. Everything santoku.lpeg does (JSON scanning, HTML ",
         "tokenizing, CSV) is built from these. Here the combinators build a recursive ",
-        "grammar for nested word lists, the programmatic twin of the re string syntax.",
+        "grammar for nested word lists, the combinator form of the re string syntax.",
       }),
       code = [[
 local lpeg = require("santoku.re.core")
@@ -299,7 +299,7 @@ return n
     {
       title = "lp.html_extract and lp.html_inject",
       desc = table.concat({
-        "The central round trip. html_extract strips tags to plain text and returns tag ",
+        "html_extract strips tags to plain text and returns tag ",
         "records carrying the element name, attribute table, and the 1-based inclusive ",
         "s, e range each element covers in the stripped text. Edit the records (here a ",
         "text override canonicalizes the author name), then html_inject rebuilds markup ",
@@ -357,12 +357,12 @@ return html
     {
       title = "lp.html_match_tags and lp.html_spans",
       desc = table.concat({
-        "The bridge from match vectors to markup. Given parallel id, start, and end ",
+        "From match vectors to markup. Given parallel id, start, and end ",
         "vectors (0-based offsets, anything with :size() and :get(i), which santoku.ivec ",
         "satisfies), html_match_tags builds span tag records with class names mapped ",
         "through a names table and an optional prefix, ready for html_inject. This is how ",
-        "search hit highlighting and entity annotation render: the matcher emits offsets, ",
-        "this turns them into spans. html_spans goes the other way, converting tag records ",
+        "search hit highlighting and entity annotation render from matcher offsets. ",
+        "html_spans goes the other way, converting tag records ",
         "to a santoku.pvec of (s-1, e) pairs for span algebra.",
       }),
       code = [[
@@ -385,7 +385,7 @@ return lp.html_inject(text, tags)
       desc = table.concat({
         "Collapse whitespace runs and drop comments while preserving pre, textarea, ",
         "script, and style bodies byte for byte. This runs over every HTML asset in toku ",
-        "web release builds, so the shipped markup is exactly what this function returns.",
+        "web release builds.",
       }),
       code = [[
 local lp = require("santoku.lpeg")
@@ -425,8 +425,7 @@ return lp.transform_inline(html, {
         "Split an HTML component fragment into its pieces: external deps (script src ",
         "attributes), the style body, the inline init script, an optional destroy script ",
         "(script type=\"destroy\"), and the remaining body markup. This is the loader ",
-        "behind the web component framework: one file per component, one call to take ",
-        "it apart.",
+        "behind the web component framework: one file per component.",
       }),
       code = [[
 local lp = require("santoku.lpeg")
@@ -472,7 +471,7 @@ return out
     {
       title = "santoku.lpeg.strip: one stripper per language",
       desc = table.concat({
-        "Each language gets a grammar that knows its own hazards. C handles both comment ",
+        "Each language gets a grammar covering its own hazards. C handles both comment ",
         "styles and keeps NOLINT-style directives. JS distinguishes regex literals from ",
         "division and leaves backtick templates and @ts- directives alone. CSS strips ",
         "only block comments outside strings, and nginx conf strips hash comments but ",

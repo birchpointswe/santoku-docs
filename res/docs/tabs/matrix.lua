@@ -13,7 +13,7 @@ return {
     "learned weights, pass them back to apply), and gather operations accept an ",
     "out= destination to avoid allocation in hot loops. On native builds the dense ",
     "math routes through BLAS; under WebAssembly the same functions compile to ",
-    "portable C loops, and that wasm build is exactly what this page ships. The ",
+    "portable C loops, and that wasm build is the one this page ships. The ",
     "vector and matrix modules below (ivec, dvec, fvec, pvec, mtx, csr, spans) run ",
     "live in your browser; only the file-backed paths (persist, mmap) and the hash ",
     "map modules are shown for reading.",
@@ -167,8 +167,8 @@ return heap:size()
       title = "mtx: wrap a vector, zero copies",
       desc = table.concat({
         "A dense matrix is a row-major view over a typed vector. Wrapping adopts the vector: data ",
-        "returns the very same object, and writes through either side are visible in the other. This is ",
-        "the live zero-copy story, running here in wasm linear memory. Allocation without data gives a ",
+        "returns the very same object, and writes through either side are visible in the other, here ",
+        "in wasm linear memory. Allocation without data gives a ",
         "zeroed matrix, the element type is inferred from the wrapped vector, and from_pairs scatters ",
         "(row, col) index pairs into a count or weight matrix.",
       }),
@@ -447,7 +447,7 @@ return A:shape()
         "to_sparse drops zeros (or anything under an optional epsilon) into a csr, to_dense expands ",
         "back, and the pair round-trips exactly. to_bits packs a binary csr into a bitmap vector for ",
         "the mtx bits layout, and from_bits unpacks it, so the same rows can move between the three ",
-        "representations as the workload demands.",
+        "representations.",
       }),
       code = [[
 local mtx = require("santoku.mtx")

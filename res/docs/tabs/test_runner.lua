@@ -22,8 +22,8 @@ return {
         "A spec file is a plain Lua script: require santoku.test, call test(tag, fn) ",
         "for each case, and assert inside. Blocks nest, and the tags accumulate into ",
         "a chain. A passing suite is silent; a failing assertion prints the full tag ",
-        "chain, the error, and a traceback, then exits the process with status 1, so ",
-        "the file's exit status is the verdict. There is no registration, no runner ",
+        "chain, the error, and a traceback, then exits the process with status 1. ",
+        "There is no registration, no runner ",
         "object, no setup or teardown API: the file just executes top to bottom. This ",
         "spec is real, the base library's fracidx suite: ",
         "https://github.com/birchpointswe/lua-santoku/blob/master/test/spec/santoku/fracidx.lua",
@@ -139,7 +139,7 @@ end)
     },
 
     {
-      title = "Assertions that explain themselves",
+      title = "Assertions that report a reason",
       desc = table.concat({
         "The assertion vocabulary comes from the base library, not the harness. ",
         "err.assert passes its arguments through on success, so it wraps expressions ",
@@ -215,9 +215,9 @@ Test:   test/spec/santoku/table.lua
         "options table with exactly three keys: match, a Lua pattern that a file's ",
         "path must match to run; interp, an argv array to run each file under as a ",
         "subprocess; and stop, which exits with status 1 at the first failing file ",
-        "instead of continuing. Both arguments are validated as tables, opts is ",
-        "optional, and there is no return value or result object: the report is ",
-        "what gets printed, and the process exit status is the verdict.",
+        "instead of continuing. Both arguments are validated as indexable, opts is ",
+        "optional, and the report is printed as files run: the return value is just ",
+        "true when every file passed and false otherwise.",
       }),
       runnable = false,
       code = [[
@@ -330,8 +330,8 @@ $ echo $?
     {
       title = "Inside the runner: the per-file dispatch",
       desc = table.concat({
-        "The heart of the module, verbatim: match filters, the Test: line prints, ",
-        "then three branches inside pcall. An interp wins for every file (its argv ",
+        "The per-file dispatch in outline: match filters, the Test: line prints, ",
+        "then three branches inside pcall. An interp takes precedence for every file (its argv ",
         "is copied, the path appended, and the child spawned); otherwise .lua ",
         "files run in-process via fs.runfile against the shared run_env; anything ",
         "else is handed to santoku.system.execute as a program of its own. The ",
@@ -394,8 +394,8 @@ $ toku exec toku test -m sqlite test/spec
         "santoku.profile or santoku.trace when --profile or --trace was given), ",
         "and a match anchored to .lua so only Lua sources run from the rendered ",
         "tree. The WASM variant runs the same suite as bundled .js files under ",
-        "node, and --single narrows the run to one spec, mapped to its .js twin ",
-        "in WASM mode.",
+        "node, and --single narrows the run to one spec, mapped to its .js ",
+        "counterpart in WASM mode.",
       }),
       runnable = false,
       code = [[
@@ -410,14 +410,13 @@ Test:   test/spec/santoku/fracidx.js
     },
 
     {
-      title = "Testing the tester",
+      title = "The runner's own spec",
       desc = table.concat({
-        "The runner's own spec, verbatim and complete: it asserts the module is a ",
-        "callable and that nonexistent paths are skipped without spawning ",
-        "anything, with or without a match. A spec calling the runner from inside ",
-        "a spec is safe precisely because of the contracts above: the missing ",
-        "paths short-circuit before any execution, so nothing recurses and ",
-        "nothing exits.",
+        "Two cases from the runner's own spec: the module is a ",
+        "callable, and nonexistent paths are skipped without spawning ",
+        "anything, with or without a match. Calling the runner from inside ",
+        "a spec is safe here because the missing paths short-circuit before any ",
+        "execution.",
       }),
       runnable = false,
       code = [[

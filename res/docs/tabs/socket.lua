@@ -3,15 +3,15 @@ return {
   intro = table.concat({
     "santoku-socket is the framework's native HTTP(S) client: a thin wrapper over ",
     "LuaSocket and LuaSec (ssl.https plus ltn12) with a small, uniform ",
-    "request/response shape. The whole module is three functions: fetch for a ",
+    "request/response shape. The surface is small: fetch for a ",
     "blocking request, request for a cancelable handle whose await runs it, and a ",
-    "millisecond sleep built on santoku-system. Those same three names are the ",
-    "backend contract of santoku-http, so plugging this module into that front end ",
+    "millisecond sleep built on santoku-system. Those same names are what ",
+    "santoku-http expects of a backend, so plugging this module into that front end ",
     "adds retry, hooks, and query building with no glue, and identical client code ",
     "runs over this module's browser and OpenResty siblings. It ",
     "needs native TLS sockets, so it runs in servers, CLIs, and scripts rather than ",
     "in this page: the examples are shown for reading, except the response model, ",
-    "which is plain Lua and runs live. The tour is the whole surface in order: ",
+    "which is plain Lua and runs live. The examples run in order: ",
     "fetch, the response contract, failure paths, request and cancel, sleep, and ",
     "composition with santoku-http.",
   }),
@@ -33,7 +33,7 @@ return #resp.body()
 
     {
       title = "The response shape",
-      desc = "Every completed response carries status, ok, headers, and body. Header keys are lowercased on the way in, and resp.ok always equals the first return, so either can drive control flow.",
+      desc = "Every completed response carries status, ok, headers, and body. Header keys are lowercased on the way in, and resp.ok always equals the first return.",
       runnable = false,
       code = [[
 local socket = require("santoku.socket")
@@ -48,8 +48,8 @@ return resp.body()
     },
 
     {
-      title = "Anatomy of a response, modeled live",
-      desc = "This mirrors exactly what the module does after ssl.https returns: concatenate the sink chunks into one body, lowercase every header key, compute ok from the 2xx range, and capture the body in a closure so it reads repeatedly. The construction is plain Lua, so this one runs here.",
+      title = "How a response is built, modeled live",
+      desc = "The same steps the module takes after ssl.https returns: concatenate the sink chunks into one body, lowercase every header key, compute ok from the 2xx range, and capture the body in a closure so it reads repeatedly. The construction is plain Lua, so this one runs here.",
       code = [[
 local arr = require("santoku.array")
 local str = require("santoku.string")
@@ -171,7 +171,7 @@ return resp.body()
     },
 
     {
-      title = "cancel wins on both sides of the fetch",
+      title = "cancel before and after the fetch",
       desc = "Canceling before await short-circuits without issuing a request. await also re-checks the flag after the fetch returns, so a cancel raced in from a hook discards the response and yields the canceled sentinel. That sentinel is { status = 0, headers = {}, ok = false, canceled = true } with no body function, so check canceled before reading.",
       runnable = false,
       code = [[
@@ -244,7 +244,7 @@ return poll("https://api.example.com/status")
 
     {
       title = "A REST wrapper in one function",
-      desc = "A payments layer in miniature: one function turns method, path, and params into a bearer-authenticated form-encoded request and a decoded JSON table or an error string. Because body() returns nil rather than raising on transport failure, the error path can lean on resp.error or the body without extra guards.",
+      desc = "One function turns method, path, and params into a bearer-authenticated form-encoded request and returns a decoded JSON table or an error string. Because body() returns nil rather than raising on transport failure, the error path can use resp.error or the body without extra guards.",
       runnable = false,
       code = [[
 local socket = require("santoku.socket")
@@ -278,7 +278,7 @@ return session or err
 
     {
       title = "As the backend of santoku-http",
-      desc = "The module's fetch, request, and sleep are exactly the santoku-http backend contract, and that front end prefers request when present, so cancellation flows through. One line buys query params via to_query, request and response hooks, and retry with jittered backoff: by default 3 retries starting at 1000ms with a 3x multiplier, triggered on status 0, 429, 502, 503, and 504.",
+      desc = "santoku-http expects a backend with fetch, request, and sleep, and prefers request when present, so cancellation flows through. One line adds query params via to_query, request and response hooks, and retry with jittered backoff: by default 3 retries starting at 1000ms with a 3x multiplier, triggered on status 0, 429, 502, 503, and 504.",
       runnable = false,
       code = [[
 local http = require("santoku.http")(require("santoku.socket"))
@@ -296,7 +296,7 @@ return r2.canceled
 
     {
       title = "One contract, three transports",
-      desc = "Because the response shape is shared, the same application code runs over three interchangeable backends: this module in native scripts, santoku.web.socket in the browser, and santoku.resty.socket under OpenResty; nothing above the backend line changes.",
+      desc = "Because the response shape is shared, the same application code runs over three interchangeable backends: this module in native scripts, santoku.web.socket in the browser, and santoku.resty.socket under OpenResty.",
       runnable = false,
       code = [[
 local native = require("santoku.http")(require("santoku.socket"))

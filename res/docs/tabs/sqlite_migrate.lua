@@ -4,8 +4,8 @@ return {
     "santoku-sqlite-migrate is versioned schema migration in one function: pass a ",
     "santoku-sqlite handle and a table mapping names to SQL strings, and it applies ",
     "the ones that have not run yet, in version order, inside a single transaction, ",
-    "recording each in a bookkeeping table. There is no down direction: the posture ",
-    "is forward-only, append a new numbered migration and never edit an applied ",
+    "recording each in a bookkeeping table. There is no down direction: migrations ",
+    "are forward-only, append a new numbered one and never edit an applied ",
     "one, and when a change is too deep to express as SQL over live data, wipe and ",
     "rebuild under a schema epoch instead, shown at the end. The first five ",
     "examples run live in this page against an ",
@@ -47,7 +47,7 @@ return db.getter("select count(*) from items")()
       desc = table.concat({
         "Applied names are skipped, so calling migrate again with the same table does nothing, even when ",
         "a migration has side effects like inserting rows. That makes it safe to run unconditionally at ",
-        "every startup, which is exactly how every consumer uses it.",
+        "every startup.",
       }),
       code = [[
 local sqlite = require("santoku.sqlite.db")
@@ -123,8 +123,7 @@ return #rows
       desc = table.concat({
         "The whole batch runs inside one db.transaction. A failing migration rolls back every change ",
         "from that call, including migrations earlier in the same batch and their bookkeeping rows, so ",
-        "a database is never left half-migrated: it stays exactly where the last successful call left ",
-        "it. A non-table migrations argument raises immediately.",
+        "a database is never left half-migrated. A non-table migrations argument raises immediately.",
       }),
       code = [[
 local sqlite = require("santoku.sqlite.db")
@@ -286,13 +285,12 @@ end
     {
       title = "beyond migrations: the schema epoch wipe",
       desc = table.concat({
-        "Forward-only migrations move a database ahead; they cannot rewrite history. When a format ",
+        "When a format ",
         "change leaves existing rows unrepresentable, no SQL over them can produce valid new ones. ",
         "Instead of a data migration, record a schema epoch in the migrated database, and when the ",
         "stored epoch is behind the code's, delete every derived database minted under the old one and ",
         "let the source of truth rebuild them. The meta table read below is created by those same ",
-        "index migrations. Migrations handle additive change; the epoch handles ",
-        "everything they should not.",
+        "index migrations.",
       }),
       runnable = false,
       code = [[

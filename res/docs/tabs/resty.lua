@@ -116,10 +116,9 @@ print(ok2, res2.status)
     {
       title = "A payments client",
       desc = table.concat({
-        "socket's fetch/request shape is exactly the backend contract of the ",
-        "santoku-http rock, so handing santoku.resty.socket to santoku.http ",
-        "yields a server-side client with retries and ",
-        "jittered backoff for free.",
+        "santoku.http takes a backend with socket's fetch/request shape, so ",
+        "handing it santoku.resty.socket gives a server-side client with retries ",
+        "and jittered backoff.",
       }),
       runnable = false,
       code = [[
@@ -303,15 +302,14 @@ ws.close()
     },
 
     {
-      title = "Where it sits: templated nginx confs and web handlers",
+      title = "Templated nginx confs and web handlers",
       desc = table.concat({
-        "The nginx conf is typically a santoku-template file that renders ",
-        "res/nginx.conf through santoku-mustache at build time, mapping each ",
-        "API location to content_by_lua_file with a bundled tasks.web module. ",
-        "Those handlers own the inbound side with the raw ngx API and lean on ",
+        "The nginx conf is typically a santoku-template file rendered at build ",
+        "time, mapping each ",
+        "API location to content_by_lua_file with a bundled web module. ",
+        "Those handlers take the inbound side with the raw ngx API and use ",
         "this library for the outbound side, like the Stripe portal handler ",
-        "below: nginx routes in, ",
-        "santoku.resty carries the calls out.",
+        "below.",
       }),
       runnable = false,
       code = [[

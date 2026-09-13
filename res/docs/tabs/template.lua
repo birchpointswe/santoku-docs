@@ -246,7 +246,7 @@ return {
 
     {
       title = "Templating an nginx conf",
-      desc = "A server/nginx.tk.conf is one block: it resolves content-hashed filenames with the build's hashed helper, assembles env directives from config, then hands the body off to santoku.mustache against a context table. The block's readfile calls are recorded as dependencies, so the conf rebuilds when res/nginx.conf changes.",
+      desc = "A server/nginx.tk.conf can be one block: it resolves content-hashed filenames with the build's hashed helper, assembles env directives from config, then hands a mustache conf source off to santoku.mustache against a context table. The block's readfile calls are recorded as dependencies, so the conf rebuilds when that source changes.",
       runnable = false,
       code = [[
 <%
@@ -288,7 +288,7 @@ return {
 
     {
       title = "The build engine templates itself",
-      desc = "santoku-make's web project module is itself a .tk.lua file: when the engine is built, blocks inline its shell and config resources as base64 string constants, and at project build time add_templated_target_base64 decodes and renders them against the project env, so the shipped module carries its own templates.",
+      desc = "santoku-make's web project module is itself a .tk.lua file: when the engine is built, blocks inline its shell and config resources as base64 string constants, and at project build time add_templated_target_base64 decodes and renders them against the project env.",
       runnable = false,
       code = [[
 add_templated_target_base64(server_dir(base_server_run_sh),
@@ -302,7 +302,7 @@ add_templated_target_base64(server_dir(base_server_luarocks_cfg),
       title = "What a .tk file can see, in a web project",
       desc = table.concat({
         "The names available inside <% %> depend on which environment is rendering ",
-        "the file, and this is the part most easily discovered by accident. The list ",
+        "the file. The list ",
         "below is what web projects inject. readfile and root_dir let a template pull ",
         "in a sibling file, which is how a small .tk.conf renders a large template ",
         "kept in res. hashed maps a logical asset name to its content-hashed filename ",

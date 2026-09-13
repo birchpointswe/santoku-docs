@@ -12,7 +12,7 @@ return {
     "cooperative Web Lock shared across tabs, and a pool of slot files. That wasm ",
     "build is what this page ships, so most examples below run live against ",
     "in-memory databases in your ",
-    "browser. File persistence and the encryption key ceremony need a real ",
+    "browser. File persistence and the encryption key setup need a real ",
     "filesystem, so those examples are shown for reading.",
   }),
 
@@ -112,7 +112,7 @@ return get({ name = "Miami" })
 
     {
       title = "inserter: closures that return the rowid",
-      desc = "inserter runs like a runner but hands back last_insert_rowid, which is how integer primary keys come home.",
+      desc = "inserter runs like a runner but returns last_insert_rowid, so integer primary keys come back to the caller.",
       code = [[
 local sqlite = require("santoku.sqlite.db")
 local sql = require("santoku.sqlite")
@@ -425,7 +425,7 @@ return "done"
     {
       title = "cosine search from scratch with carray joins",
       desc = table.concat({
-        "The whole TF/cosine index is plain SQL over carray inputs; this is the exact statement shape ",
+        "The TF/cosine index is plain SQL over carray inputs; this is the statement shape ",
         "santoku.sqlite.search prepares, inlined so it runs here. Token ids and weights stream in as ",
         "vecs, norms are precomputed per document, and one grouped join scores and ranks the corpus ",
         "(the build enables SQLite's math functions, so sqrt is available).",
@@ -620,7 +620,7 @@ return "closed, key released"
       desc = table.concat({
         "Keys register per resolved path in a process-wide table: key_set before ATTACH lets one ",
         "connection span databases sealed under different keys, and key_clear evicts a key (in-flight ",
-        "writes on a cleared key fail loudly rather than guessing). Attached databases inherit the ",
+        "writes on a cleared key then fail). Attached databases inherit the ",
         "connection's VFS, so a plain connection can never read an encrypted attach; enc_vfs names the ",
         "encrypting VFS so even a :memory: main can host encrypted attaches as a merged read view.",
       }),

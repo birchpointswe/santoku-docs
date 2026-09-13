@@ -9,10 +9,10 @@ return {
     "returning ok, resp or request(url, opts) returning a { cancel, await } handle. ",
     "The same client code runs over santoku.socket in native scripts, ",
     "santoku.web.socket in the browser, and santoku.resty.socket under OpenResty. ",
-    "The tour ",
-    "below walks the whole surface: the request verbs and the shared response ",
-    "shape, the exact arithmetic of the retry loop, cancellation at every phase ",
-    "including mid-backoff, both hook flavors and how they interact with retry, ",
+    "The examples ",
+    "below cover the request verbs and the shared response ",
+    "shape, the arithmetic of the retry loop, cancellation at every phase ",
+    "including mid-backoff, both hook forms and how they interact with retry, ",
     "and three fuller worked examples. The examples use tiny in-memory ",
     "backends, the same technique the test suite uses, so every printed count is ",
     "exact; apart from one query-string interlude that runs live, they are shown ",
@@ -643,7 +643,7 @@ return resp.body()
     {
       title = "Stripe from OpenResty",
       desc = table.concat({
-        "A billing integration in miniature: form-encoded bodies via ",
+        "A billing integration: form-encoded bodies via ",
         "str.to_formdata, bearer auth in headers, and body() read once up front ",
         "so both the error path and the success path can use it.",
       }),
@@ -679,7 +679,7 @@ return json.decode(body).url
     {
       title = "A cancelable sync loop",
       desc = table.concat({
-        "A sync orchestrator in miniature: the in-flight post is ",
+        "A sync orchestrator: the in-flight post is ",
         "held in a module-local so lock or teardown can abort it mid-flight; the ",
         "canceled sentinel, offline (status 0), and protocol statuses each route ",
         "differently, and the connectivity probe runs with retry = false while ",

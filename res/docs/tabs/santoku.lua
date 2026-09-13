@@ -4,7 +4,7 @@ return {
     "santoku is the base library of the framework: plain Lua 5.1 modules for arrays, ",
     "strings, tables, functions, numbers, ordering keys, errors, validation, time, ",
     "randomness, and async control flow, with no dependencies beyond Lua itself and ",
-    "a few small C helpers. The tour below runs basics to advanced, and every ",
+    "a few small C helpers. The examples below run from basics to advanced, and every ",
     "example is live: edit the code and press Run to execute it right here, in a ",
     "Lua interpreter compiled to WebAssembly.",
   }),
@@ -307,7 +307,7 @@ return tbl.get(cfg, { "server", "ports", 1 })
       desc = table.concat({
         "keys, vals, and entries project a map into arrays; from indexes an ",
         "array by a key function; invert flips keys and values; equals compares ",
-        "deeply and, on mismatch, tells you why.",
+        "deeply and returns a reason on mismatch.",
       }),
       code = [[
 local tbl = require("santoku.table")
@@ -360,8 +360,7 @@ return fun.const(42)()
       title = "santoku.num",
       desc = table.concat({
         "Rounding to integers or steps, decimal truncation, and exponential ",
-        "moving averages; the module also re-exports all of math, so num is a ",
-        "drop-in superset.",
+        "moving averages; the module also re-exports all of math.",
       }),
       code = [[
 local num = require("santoku.num")
@@ -455,7 +454,7 @@ return op.cat("santoku", ".op")
     },
 
     {
-      title = "santoku.validate: checks that explain themselves",
+      title = "santoku.validate: checks that return a reason",
       desc = table.concat({
         "Every validator returns true, or false plus a reason and the offending ",
         "values, which slots straight into error.assert: a failed check throws ",
@@ -534,7 +533,7 @@ print("fast max:", random.fast_max)
     },
 
     {
-      title = "santoku.async: callbacks without the pyramid",
+      title = "santoku.async: callbacks without deep nesting",
       desc = table.concat({
         "Continuation-passing helpers that flatten callback code: pipe chains ",
         "steps and short-circuits on failure, events is a tiny synchronous ",
@@ -590,12 +589,12 @@ print({ now = { tables = "print readably" } })
     },
 
     {
-      title = "The long tail: co, inherit, geo, env",
+      title = "Smaller modules: co, inherit, geo, env",
       desc = table.concat({
         "santoku.co builds tagged coroutine sets that nest without stealing ",
         "each other's yields, inherit manages __index chains, geo does planar ",
         "and great-circle math, and env reads variables with defaults. bench, ",
-        "test, and tracer round out the toolbox for timing and test scripts.",
+        "test, and tracer cover timing and test scripts.",
       }),
       code = [[
 local inherit = require("santoku.inherit")

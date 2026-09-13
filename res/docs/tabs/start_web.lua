@@ -10,7 +10,7 @@ return {
     "from the container image santoku-make ships, with your code mounted in. Both ",
     "are covered first below, and ",
     "everything after that is identical either way. Then scaffold, build and start the ",
-    "project before changing anything, and read it file by file. ",
+    "project before changing anything. ",
     "The example project is called my-app. ",
     "What it scaffolds is a working todo app with a client-side SQLite database, tag ",
     "parsing, JSON export and a real sync endpoint, in eighteen files.",

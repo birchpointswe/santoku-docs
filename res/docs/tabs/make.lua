@@ -149,7 +149,7 @@ my-lib/test/spec/my_lib.lua
     },
 
     {
-      title = "Anatomy of make.lua",
+      title = "What make.lua contains",
       desc = table.concat({
         "A project is a make.lua returning a table with an env field: plain data, no ",
         "framework calls. name and version are required; dependencies are luarocks ",
@@ -432,7 +432,7 @@ return {
         "phase, and the combined forms (build.wasm.ldflags, test.native.cflags, ...) ",
         "scope by both. WASM builds are selected with --wasm, land in ",
         "build/<env>-wasm, and the Makefile templates branch on the compiler being ",
-        "emcc. santoku-web's Emscripten export flags ride in exactly these fields, and ",
+        "emcc. santoku-web's Emscripten export flags are set in exactly these fields, and ",
         "https://github.com/birchpointswe/lua-santoku-learn/blob/master/make.common.lua ",
         "is a full real example: OpenMP and BLAS confined to native, wasm ldflags per ",
         "phase.",
@@ -716,9 +716,10 @@ client = {
         "The engine renders your server/nginx.tk.conf into nginx.conf and a foreground ",
         "variant, with a context holding your nginx block merged with daemon, pid, and ",
         "log settings, the resolved module paths, lua_package_path and cpath for the ",
-        "installed lua_modules, and the hashed() lookup. The boilerplate keeps the ",
-        "actual nginx directives in res/nginx.conf and mustache-renders them with that ",
-        "context, so hashed entry points land directly in the config.",
+        "installed lua_modules, and the hashed() lookup. One technique, shown below: ",
+        "keep the actual nginx directives in a separate mustache file under res and ",
+        "render them with that context, so hashed entry points land directly in the ",
+        "config.",
       }),
       runnable = false,
       code = [[

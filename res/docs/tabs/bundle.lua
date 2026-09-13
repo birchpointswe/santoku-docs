@@ -8,9 +8,9 @@ return {
     "bundled test suites, and web clients. The library exports exactly one function, ",
     "bundle(infile, outdir, opts). Dependencies are found by scanning source text for ",
     "string-literal require calls, so dynamic requires need opts.mods and unresolvable ",
-    "names need opts.ignores. This tab is a guided tour of the whole anatomy: the merge, ",
-    "the scanner and its blind spots, module resolution, C modules, bytecode and ",
-    "embedding, the build-integration options, and the exact calls that produce native ",
+    "names need opts.ignores. This tab covers the merge, ",
+    "the scanner and what it cannot see, module resolution, C modules, bytecode and ",
+    "embedding, the build-integration options, and the calls that produce native ",
     "toku binaries and this site. Bundling needs the real filesystem and a C toolchain, ",
     "so most examples are shown for reading; a few in-page demos exercise the plain-Lua ",
     "mechanisms bundle is built on.",
@@ -53,7 +53,7 @@ return "merged lua, generated c, linked executable"
         "The merged Lua file has a fixed shape: one package.preload assignment per ",
         "discovered module, a require line for each opts.mods entry, then the entry ",
         "source appended raw. preload is stock Lua 5.1: nothing here touches the ",
-        "filesystem, the entire trick is table assignment.",
+        "filesystem, it is all table assignment.",
       }),
       runnable = false,
       code = [[
@@ -78,7 +78,7 @@ return require("demo.app")
         "guarded against identifier characters, optional parentheses, and a string ",
         "literal, while comments and string bodies are skipped. The naive pattern below ",
         "shows the literal-only idea, and its false positives show why the grammar ",
-        "bothers skipping comments and strings.",
+        "skips comments and strings.",
       }),
       code = [[
 local src = table.concat({
@@ -103,14 +103,14 @@ return naive
     },
 
     {
-      title = "Blind spots, and mods to fill them",
+      title = "What the scan cannot see, and mods to fill it",
       desc = table.concat({
         "The scan is textual, not semantic: a require in dead code is still bundled, ",
         "and a require built from variables or concatenation is invisible. opts.mods ",
         "forces modules in: each entry is resolved, preloaded, and required ahead of ",
-        "the entry. In make.lua descriptors this surfaces as client.bundle_mods: ",
-        "this docs site lists 28 modules so in-page snippets can require them at ",
-        "runtime.",
+        "the entry. In make.lua descriptors this surfaces as client.bundle_mods, which ",
+        "is how this docs site makes a fixed module list available to the snippets ",
+        "you can run in the page.",
       }),
       runnable = false,
       code = [[
@@ -299,7 +299,7 @@ return "environment fixed at compile time"
         "Omitted, opts.close registers an atexit handler that closes the lua_State. ",
         "true closes it explicitly at the end of main. false never closes it, which ",
         "the wasm builds pair with -sNO_EXIT_RUNTIME so the state outlives main and ",
-        "keeps handling browser events: how this page is still running.",
+        "keeps handling browser events, which is how this page keeps running.",
       }),
       runnable = false,
       code = [[
@@ -364,8 +364,8 @@ return "one self-contained binary"
       desc = table.concat({
         "The web project layer of santoku-make bundles each client page with this call ",
         "shape. This site's entry, client/bin/bundle.tk.lua, is one line: return ",
-        "require(\"docs.main\"). The scanner follows that literal into docs.content and ",
-        "every tab module, including the one you are reading. emcc emits the page JS ",
+        "require(\"docs.main\"). The scanner follows that literal into the client ",
+        "modules it requires, including the generated search index. emcc emits the page JS ",
         "plus a .wasm beside it, and the --pre-js flags splice in the vendored ",
         "highlighter and editor.",
       }),
@@ -397,7 +397,7 @@ bundle(wasm_build .. "/bin/bundle.lua", "build/client/bundler-post", {
     "--pre-js", "vendor/codejar-global.js",
   },
 })
-print("this site's real mods list has 28 entries in make.common.lua, the")
+print("this site's real mods list lives in res/docs/bundle_mods.lua, the")
 print("modules the runnable examples on these pages may require")
 print("outprefix defaults to bundle, so emcc emits bundle and bundle.wasm")
 return "the program rendering this sentence"
@@ -437,7 +437,7 @@ return lua_dir
         "stripped so VFS paths stay short. The generated main points package.path at ",
         "the embedded /lua_modules tree and runs the entry with luaL_dofile from its ",
         "VFS path. Tracebacks keep real filenames, so the web layer switches to this ",
-        "mode via client.files when debuggability beats size.",
+        "mode via client.files when debuggability matters more than size.",
       }),
       runnable = false,
       code = [[

@@ -13,9 +13,9 @@ return {
     "to WebAssembly, so every example on this page runs live in your ",
     "browser. All base64 output is ",
     "standard alphabet with padding: 44 characters for 32-byte values, 88 for ",
-    "64-byte signatures. One honesty note: the defaults are 65536 Argon2id blocks ",
+    "64-byte signatures. Note that the defaults are 65536 Argon2id blocks ",
     "(64 MiB) and 3 passes, which is deliberately slow; the examples pass 1024 and ",
-    "1 so the page stays snappy. Never use the reduced parameters in production.",
+    "1 so they finish quickly. Never use the reduced parameters in production.",
   }),
 
   examples = {
@@ -41,13 +41,13 @@ return crypto.validate(secret)
     },
 
     {
-      title = "phrase_audit: the weak-pattern taxonomy",
+      title = "phrase_audit: weak-pattern checks",
       desc = table.concat({
         "phrase_audit flags human-picked phrases that a dice roll would almost never ",
         "produce. It returns one of four strings, checked in priority order: ",
         "repeated_word, same_letter (all words share a first letter), sequential ",
         "(first letters step through the alphabet), alphabetical (fully sorted either ",
-        "direction), or nil for a healthy phrase.",
+        "direction), or nil when none apply.",
       }),
       code = [[
 local crypto = require("santoku.monocypher")
@@ -157,7 +157,7 @@ return key:decrypt(ct)
       desc = table.concat({
         "Each encrypt call draws a random 24-byte XChaCha20 nonce, so encrypting ",
         "the same plaintext twice under the same key produces unrelated ciphertexts ",
-        "that both decrypt fine. Equal ciphertexts never leak equal contents.",
+        "that both decrypt fine.",
       }),
       code = [[
 local crypto = require("santoku.monocypher")
@@ -173,12 +173,12 @@ return a ~= b
     },
 
     {
-      title = "anatomy of a ciphertext",
+      title = "ciphertext layout",
       desc = table.concat({
         "The blob layout is one version byte (1 plain, 2 AAD-bound), the 24-byte ",
         "nonce, the ciphertext (same length as the plaintext), and the 16-byte ",
-        "Poly1305 tag, all base64 encoded. santoku.string's codec functions let you ",
-        "take it apart and look.",
+        "Poly1305 tag, all base64 encoded. santoku.string's codec functions take ",
+        "it apart.",
       }),
       code = [[
 local crypto = require("santoku.monocypher")
@@ -217,7 +217,7 @@ return key:decrypt(ct, "sub:id-1")
     },
 
     {
-      title = "the decrypt failure taxonomy",
+      title = "decrypt failure modes",
       desc = table.concat({
         "decrypt never raises; it returns nil plus one of three strings. ",
         "unsupported version covers truncated blobs and unknown version bytes, aad ",
@@ -439,7 +439,7 @@ return unwrapped:bytes() == key:bytes()
     },
 
     {
-      title = "capstone: a tiny end-to-end vault",
+      title = "end to end: a tiny vault",
       desc = table.concat({
         "Everything together: one passphrase, one Argon2id run, a db subkey, each ",
         "record AEAD-sealed with its own id as AAD so blobs cannot be shuffled, and ",

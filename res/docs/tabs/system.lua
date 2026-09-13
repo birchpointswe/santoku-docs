@@ -8,7 +8,7 @@ return {
     "(santoku.system.posix) and everything from Lua's os library, so sys.fork and ",
     "sys.getenv live beside sys.sh. Failures raise structured errors through ",
     "santoku.error carrying the OS message and errno. This is the engine under toku ",
-    "build hooks, deploy tooling, and the ll secrets CLI; everything here needs a ",
+    "build hooks, deploy tooling, and secrets-injection CLIs; everything here needs a ",
     "real operating system underneath, so the examples are shown for reading rather ",
     "than wired to the in-page interpreter.",
   }),
@@ -17,7 +17,7 @@ return {
 
     {
       title = "One merged table",
-      desc = "The module is three layers in one namespace: the high-level trio (execute, sh, pread), the raw POSIX bindings, and stock os. Earlier layers win on name clashes, so nothing from os is shadowed unexpectedly.",
+      desc = "The module is three layers in one namespace: the high-level trio (execute, sh, pread), the raw POSIX bindings, and stock os. Earlier layers take precedence on name clashes.",
       runnable = false,
       code = [[
 local sys = require("santoku.system")
@@ -41,7 +41,7 @@ sys.execute({ "tar", "-C", "dist", "-czf", "release.tar.gz", "." })
 
     {
       title = "Build configure hooks",
-      desc = "The workhorse pattern in toku make files: shell out to asset tooling from a target's build function: CSS build, icon rasterization, dev-only self-signed TLS.",
+      desc = "The common pattern in toku make files: shell out to asset tooling from a target's build function, for a CSS build, icon rasterization, or dev-only self-signed TLS.",
       runnable = false,
       code = [[
 local sys = require("santoku.system")
@@ -153,7 +153,7 @@ end
 
     {
       title = "pread tolerates failure, sh does not",
-      desc = "pread reports a non-zero exit as data rather than raising, so a CLI can sweep a child's stderr into a diagnostic and decide for itself. This is the ll secrets client collecting a helper's failure message.",
+      desc = "pread reports a non-zero exit as data rather than raising, so a CLI can collect a child's stderr into a diagnostic and decide what to do with it. This is a secrets client collecting a helper's failure message.",
       runnable = false,
       code = [[
 local sys = require("santoku.system")
@@ -270,7 +270,7 @@ end
 
     {
       title = "Throttled atoms",
-      desc = "atom(initial, throttle) also records the time of the last take and sleeps inside the semaphore until at least throttle seconds have passed, making it a cross-process rate limiter: N workers hammering one API share a single global pace. The call accepts an optional increment (default 1).",
+      desc = "atom(initial, throttle) also records the time of the last take and sleeps inside the semaphore until at least throttle seconds have passed, making it a cross-process rate limiter: N workers calling one API share a single pace. The call accepts an optional increment (default 1).",
       runnable = false,
       code = [[
 local sys = require("santoku.system")
@@ -323,7 +323,7 @@ end
 
     {
       title = "sys.execp: becoming another program",
-      desc = "execp(prog, argv) replaces the current process via execvp (PATH search, argv from the table) and never returns on success, so reaching the next line means it failed with errno. The ll CLI ends this way: inject secrets with setenv, then exec the user's command.",
+      desc = "execp(prog, argv) replaces the current process via execvp (PATH search, argv from the table) and never returns on success, so reaching the next line means it failed with errno. A secrets CLI ends this way: inject secrets with setenv, then exec the user's command.",
       runnable = false,
       code = [[
 local sys = require("santoku.system")
@@ -339,7 +339,7 @@ os.exit(127)
 
     {
       title = "fork plus execp: a supervised child",
-      desc = "fork() returns the child pid in the parent and 0 in the child (on Linux the child also gets SIGHUP if the parent dies). The ll CLI forks, points the child at a private SSH_AUTH_SOCK, execs the user's command, and serves the agent socket from the parent until the child exits.",
+      desc = "fork() returns the child pid in the parent and 0 in the child (on Linux the child also gets SIGHUP if the parent dies). An ssh-agent forwarding CLI forks, points the child at a private SSH_AUTH_SOCK, execs the user's command, and serves the agent socket from the parent until the child exits.",
       runnable = false,
       code = [[
 local sys = require("santoku.system")
@@ -357,7 +357,7 @@ print(reason, status)
     },
 
     {
-      title = "pipe, dup2, read: the raw plumbing",
+      title = "pipe, dup2, read: the raw primitives",
       desc = "The same primitives sh is built from are exported directly: pipe() returns read and write fds (close-on-exec), dup2 rewires a child's stdout, read pulls raw bytes, wait reaps.",
       runnable = false,
       code = [[
