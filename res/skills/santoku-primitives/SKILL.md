@@ -68,10 +68,3 @@ The whole stack targets 5.1, and exploits it: userdata `fenv` for per-object anc
 userdata-only `__gc` for finalizers, a single `number` type, lightuserdata pointer keys. Do
 not add portability shims or "may break in 5.2" caveats to code, docs or comments.
 
-## Scripting is Lua
-
-Anything that transforms files, generates output, or would plausibly be rerun goes through
-santoku: `toku lua`, or a script built on `str`, `arr`, `fs`, `sys`, `santoku.lpeg`. Reaching
-for python, perl, or a long sed or awk pipeline is the signal to write it in Lua instead.
-Throwaway inspection (`ls`, `grep -c`, `wc`) stays shell. When santoku genuinely cannot do
-the job, that is a gap to fill in the owning module.
