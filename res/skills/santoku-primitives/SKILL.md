@@ -33,6 +33,13 @@ functions remain reachable through the santoku module. Also present: `santoku.fu
 `santoku.op`, `santoku.inherit`, `santoku.fracidx`, `santoku.async`, `santoku.co`,
 `santoku.geo`.
 
+`sys.execute` and `sys.sh` take an argument list and exec it directly, with no shell
+between. Nothing in an argument is word split, glob expanded or interpreted, so values
+that came from a filename, a network response or user input cannot become commands. They
+also raise on a nonzero exit rather than returning a status to check. That is the whole
+reason to reach for them instead of building a command string: there is no quoting to get
+right, because nothing parses the string.
+
 Local aliasing at the top of a file is the house style:
 
 ```lua
@@ -67,4 +74,23 @@ hides a failure is a bug: work one way or fail loudly.
 The whole stack targets 5.1, and exploits it: userdata `fenv` for per-object anchoring,
 userdata-only `__gc` for finalizers, a single `number` type, lightuserdata pointer keys. Do
 not add portability shims or "may break in 5.2" caveats to code, docs or comments.
+
+## Parsing and text transformation
+
+`santoku.lpeg` exports finished parsers only (JSON field streaming, CSV, the HTML scanners,
+plus `santoku.lpeg.strip`), so a new parser is written one layer down, in either of two
+notations for the same engine:
+
+- `santoku.re` compiles a PEG pattern string: `compile`, `match`, `find`, `gsub`. Reach for
+  it when the grammar reads better as text and every transform is a literal.
+- `santoku.re.core` is the vendored LPeg 1.1.0 engine: the constructors `P`, `S`, `R`, `B`,
+  `V`, `utfR`, the capture family `C`, `Cc`, `Cp`, `Cs`, `Ct`, `Cg`, `Cb`, `Cf`, `Cmt`,
+  `Carg`, and the operator algebra (`*` sequence, `+` ordered choice, `^n` repetition, `-`
+  difference, unary `-` and `#` lookahead, `/` and `%` capture transforms) that grammars are
+  built from. Reach for it when captures need Lua functions or rules are assembled from data.
+
+`require("lpeg")` does not reach the engine: the C module is registered as `santoku.re.core`
+so a project can depend on an external lpeg rock at the same time. Grammar construction in
+both notations is covered at
+https://santoku.dev/santoku-lpeg#santoku-lpeg--santoku-re-core-the-combinator-surface
 

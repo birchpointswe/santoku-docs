@@ -3,18 +3,25 @@ return {
   intro = table.concat({
     "santoku-lpeg is the parsing and text transformation layer of the framework, built in ",
     "three layers. At the bottom sits a vendored LPeg 1.1.0 engine, shipped inside the rock ",
-    "as the C module santoku.re.core (renamed so it can coexist with an external lpeg rock). ",
-    "On top of it, santoku.re is the re grammar frontend: PEG pattern strings with match, ",
-    "find, gsub, plus a second, state-free parallel tier (check, tags, pmatch) that accepts ",
-    "only structure-reading patterns. The top layer is santoku.lpeg: scanning helpers that ",
-    "stream named fields out of JSON lines, parse CSV, and scan, extract, rewrite, and ",
-    "minify HTML, plus santoku.lpeg.strip, a subsequence-safe comment stripper for a dozen ",
-    "languages. toku web builds minify shipped HTML with ",
+    "as the C module santoku.re.core, renamed so it can coexist with an external lpeg rock; ",
+    "require(\"lpeg\") does not reach it and will fail unless some other rock supplies that ",
+    "name. On top of it, santoku.re is the re grammar frontend: PEG pattern strings with ",
+    "match, find, gsub, plus a second, state-free parallel tier (check, tags, pmatch) that ",
+    "accepts only structure-reading patterns. The top layer is santoku.lpeg: scanning ",
+    "helpers that stream named fields out of JSON lines, parse CSV, and scan, extract, ",
+    "rewrite, and minify HTML, plus santoku.lpeg.strip, a subsequence-safe comment stripper ",
+    "for a dozen languages. santoku.lpeg exports finished parsers only, so a new parser is ",
+    "written against santoku.re or santoku.re.core rather than by extending it. Choose ",
+    "santoku.re when the grammar reads better as a PEG string and every transform is a ",
+    "literal; choose santoku.re.core when captures need Lua functions, when rules are ",
+    "assembled programmatically from data, or when the compiled pattern is held and reused. ",
+    "Both notations describe the same patterns and can be mixed, since re.compile returns a ",
+    "santoku.re.core pattern. toku web builds minify shipped HTML with ",
     "minify_html and transform_inline, the component framework splits fragments with ",
     "component_parts, html_text and json_fields reduce documents to indexable text, ",
     "and strip backs comment policy enforcement in commit hooks. The examples ",
-    "below run from basics to advanced: single patterns, then grammars, then the scanners, ",
-    "then the stripper and its safety guarantees.",
+    "below run from basics to advanced: re pattern strings, then the combinator API and ",
+    "grammar construction, then the scanners, then the stripper and its safety guarantees.",
   }),
 
   examples = {
@@ -206,13 +213,145 @@ return re.pmatch("%a+", "hello123")
     },
 
     {
-      title = "santoku.re.core: raw combinators",
+      title = "santoku.re.core: the combinator surface",
       desc = table.concat({
-        "The vendored engine exports the full LPeg combinator API: P, S, R, B, V, the ",
-        "capture family C, Cc, Cp, Cs, Ct, Cg, Cb, Cmt, Carg, Cf, plus match, locale, ",
-        "type, utfR, and setmaxstack. Everything santoku.lpeg does (JSON scanning, HTML ",
-        "tokenizing, CSV) is built from these. Here the combinators build a recursive ",
-        "grammar for nested word lists, the combinator form of the re string syntax.",
+        "Building a new grammar starts here. The vendored engine is the C module ",
+        "santoku.re.core, not lpeg: the rename is what lets a project depend on an ",
+        "external lpeg rock at the same time, and it means require(\"lpeg\") is not the ",
+        "entry point. The exported names are the pattern constructors P, S, R, B, V and ",
+        "utfR; the capture family C, Cc, Cp, Cs, Ct, Cg, Cb, Cf, Cmt and Carg; the ",
+        "matcher match; locale, type and setmaxstack; the debug printers ptree and pcode; ",
+        "and the underscore-prefixed _prog, _check, _tags and _pmatch that santoku.re ",
+        "wraps as its parallel tier. version is a string field, not a function. Patterns ",
+        "carry the module table as their __index, so p:match(subject, init) and ",
+        "match(p, subject, init) are the same call.",
+      }),
+      code = [[
+local lpeg = require("santoku.re.core")
+local arr = require("santoku.array")
+local names = {}
+for k in pairs(lpeg) do
+  names[#names + 1] = k
+end
+arr.sort(names)
+print("exports:", arr.concat(names, " "))
+print("version:", lpeg.version)
+print("type:", lpeg.type(lpeg.P("x")), lpeg.type("x"))
+print("match:", lpeg.match(lpeg.P("ab"), "abc"))
+print("method form:", lpeg.P("ab"):match("abc"))
+print("from init:", lpeg.P("bc"):match("abc", 2))
+return lpeg.version
+]],
+    },
+
+    {
+      title = "Combinator constructors and the pattern algebra",
+      desc = table.concat({
+        "P lifts a value into a pattern: a string matches literally, a non-negative ",
+        "number matches exactly that many bytes, a boolean always or never succeeds, and ",
+        "a table is a grammar. S is a set of bytes, R is one or more inclusive byte ",
+        "ranges. Patterns then compose through operators rather than function calls: p1 * ",
+        "p2 is sequence, p1 + p2 is ordered choice (first alternative that matches wins, ",
+        "with no backtracking into it), p ^ n is at least n repetitions and p ^ -n at ",
+        "most n, p1 - p2 matches p1 only where p2 does not, -p is a negative lookahead ",
+        "and #p a positive one, both consuming nothing. B(p) looks behind instead: p must ",
+        "have a fixed length and carry no captures. Without captures a match returns the ",
+        "position one past the match, and nil on failure.",
+      }),
+      code = [[
+local lpeg = require("santoku.re.core")
+local P, S, R, B = lpeg.P, lpeg.S, lpeg.R, lpeg.B
+local digit = R("09")
+print("sequence:", (P("a") * P("b")):match("abc"))
+print("ordered choice:", (P("ab") + P("a")):match("ac"))
+print("zero or more:", (digit ^ 0):match("12x"))
+print("at least two:", (digit ^ 2):match("1x"))
+print("at most two:", (digit ^ -2):match("1234"))
+print("difference:", ((P(1) - S(",;")) ^ 1):match("ab,c"))
+print("negative lookahead:", (-P("foo") * P(1) ^ 1):match("bar"))
+print("positive lookahead:", (#P("foo") * P(1) ^ 1):match("foobar"))
+print("look-behind:", (P(1) * B(P("a")) * P("b")):match("ab"))
+print("always, never:", P(true):match("x"), P(false):match("x"))
+return (digit ^ 1):match("2026ad")
+]],
+    },
+
+    {
+      title = "Combinator captures",
+      desc = table.concat({
+        "C captures the matched text, Cp the current position, Cc a constant, Ct collects ",
+        "the captures below it into a table, and Cg(p, name) names an entry inside that ",
+        "table. Cs is a substitution capture: the matched text with each inner capture ",
+        "replaced by its value. p / x transforms captures, where x may be a function, a ",
+        "table, a string with %n references, or a number selecting one capture. Every ",
+        "capture form here has a re string counterpart, so the two notations differ in ",
+        "spelling rather than in what they can express.",
+      }),
+      code = [[
+local lpeg = require("santoku.re.core")
+local P, R = lpeg.P, lpeg.R
+local C, Cc, Cp, Cs, Ct, Cg =
+  lpeg.C, lpeg.Cc, lpeg.Cp, lpeg.Cs, lpeg.Ct, lpeg.Cg
+local word = C(R("az") ^ 1)
+print("text:", word:match("abc"))
+print("position:", (P("ab") * Cp()):match("abc"))
+print("constant:", (P("yes") * Cc(true)):match("yes"))
+local pair = Ct(word * P(",") * word)
+print("table:", pair:match("ab,cd")[1], pair:match("ab,cd")[2])
+local named = Ct(Cg(word, "first") * P(",") * Cg(word, "second"))
+local t = named:match("ab,cd")
+print("named:", t.first, t.second)
+print("substitution:", Cs((P(" ") / "_" + P(1)) ^ 0):match("a b c"))
+local n = (C(R("09") ^ 1) / tonumber):match("42")
+print("function:", n, type(n))
+print("select:", ((word * P("=") * word) / 2):match("k=v"))
+return named:match("ab,cd").second
+]],
+    },
+
+    {
+      title = "Combinator captures: folding, back-references, match-time",
+      desc = table.concat({
+        "Cf(p, f) folds the captures of p left to right, taking the first as the seed. ",
+        "p % f is the accumulator form of the same idea and is what makes iterative ",
+        "grammars readable: whatever precedes it supplies the running value, and each ",
+        "match of p folds into it. Cb(name) re-reads a capture named earlier by Cg in the ",
+        "same match. Cmt(p, f) runs f(subject, position, captures...) at match time: nil ",
+        "or false fails the match, true keeps the position, a number moves to it, and any ",
+        "further returns become captures. Carg(n) pulls the nth extra argument passed to ",
+        "match. Cmt is the one form the parallel tier rejects, so re.check returns false ",
+        "for any pattern built on it.",
+      }),
+      code = [[
+local lpeg = require("santoku.re.core")
+local P, R, C, Cf, Cg, Cb, Cmt, Carg =
+  lpeg.P, lpeg.R, lpeg.C, lpeg.Cf,
+  lpeg.Cg, lpeg.Cb, lpeg.Cmt, lpeg.Carg
+local num = C(R("09")) / tonumber
+local function add (a, b) return a + b end
+print("fold:", Cf(num * (P("+") * num) ^ 0, add):match("1+2+3"))
+print("accumulate:", (num * (P("+") * num % add) ^ 0):match("1+2+3"))
+local word = C(R("az") ^ 1)
+print("back-reference:", (Cg(word, "w") * P(" ") * Cb("w")):match("ab cd"))
+local long = Cmt(word, function (s, i, w)
+  if #w > 2 then return i, #w end
+end)
+print("match-time:", long:match("abcd"), long:match("ab"))
+print("argument:", (Carg(1) * word):match("abc", 1, "tag"))
+return (num * (P("+") * num % add) ^ 0):match("1+2+3")
+]],
+    },
+
+    {
+      title = "Combinator grammars: P with a table, and V",
+      desc = table.concat({
+        "A grammar is a table passed to P. Its rules are keyed by name, V(name) refers to ",
+        "a rule, and element 1 names the initial rule (or is the initial rule itself). ",
+        "Recursion through V is what lets a grammar match balanced, nested structure. Rule ",
+        "names can be any non-nil value, so rules can be generated from data. Left ",
+        "recursion is rejected when the pattern is compiled rather than looping at match ",
+        "time. The second grammar here layers one rule per precedence level, the ",
+        "combinator spelling of the earlier re precedence example.",
       }),
       code = [[
 local lpeg = require("santoku.re.core")
@@ -224,9 +363,47 @@ local list = P({ "list",
   list = P("(") * ws *
     Ct(((word + V("list")) * ws) ^ 0) * P(")"),
 })
-local t = lpeg.match(list, "(ab (cd ef) gh)")
-print(t[1], t[2][1], t[2][2], t[3])
-return t[1]
+local t = list:match("(ab (cd ef) gh)")
+print("nested:", t[1], t[2][1], t[2][2], t[3])
+local expr = P({ "sum",
+  sum = Ct(V("prod") * (P("+") * V("prod")) ^ 0),
+  prod = Ct(V("num") * (P("*") * V("num")) ^ 0),
+  num = C(R("09") ^ 1),
+})
+local e = expr:match("1+2*3+4")
+print("terms:", #e)
+print("middle term factors:", e[2][1], e[2][2])
+return t[2][2]
+]],
+    },
+
+    {
+      title = "locale classes and utfR: what is byte-oriented",
+      desc = table.concat({
+        "locale() returns a fresh table of eleven character classes (alnum, alpha, cntrl, ",
+        "digit, graph, lower, print, punct, space, upper, xdigit), each built by testing ",
+        "the C library predicate over every byte value. They are byte sets, so under the C ",
+        "locale they cover ASCII only and stop at the first byte of a multi-byte ",
+        "character. The same classes back the %a %d %s %w names in re pattern strings. ",
+        "utfR(first, last) is the one UTF-8 aware constructor: it matches a single ",
+        "codepoint in the inclusive range, compiling to a plain byte set when the range ",
+        "fits in ASCII and to a multi-byte matcher otherwise. It gives codepoint ",
+        "boundaries, not case mapping or character properties. Lua 5.1 has no \\x escape, ",
+        "so non-ASCII bytes in source are written as decimal escapes.",
+      }),
+      code = [[
+local lpeg = require("santoku.re.core")
+local P, C, Ct = lpeg.P, lpeg.C, lpeg.Ct
+local cls = lpeg.locale()
+print("alpha run:", C(cls.alpha ^ 1):match("abc123"))
+print("stops at a multi-byte char:",
+  C(cls.alpha ^ 1):match("na\195\175ve"))
+local codepoint = lpeg.utfR(0x80, 0x10FFFF) + P(1)
+local chars = Ct(C(codepoint) ^ 0)
+local t = chars:match("na\195\175ve")
+print("characters:", #t)
+print("third:", t[3], #t[3])
+return #t
 ]],
     },
 
