@@ -172,10 +172,10 @@ Total: 0 warnings / 0 errors in 3 files
       desc = table.concat({
         "In project mode --single runs one spec file, --skip-check drops luacheck, ",
         "--lua swaps the interpreter, -s stops at the first failure instead of running ",
-        "the whole suite, and --profile / --trace preload santoku.profile ",
-        "and santoku.trace into the test interpreter for a performance profile or ",
-        "source trace. Passing file or directory arguments switches to the standalone ",
-        "runner, bypassing the project build entirely: -m filters files by Lua ",
+        "the whole suite, and --trace preloads santoku.trace into the test ",
+        "interpreter for a source trace. Passing file or directory arguments ",
+        "switches to the standalone runner, bypassing the project build ",
+        "entirely: -m filters files by Lua ",
         "pattern and -i runs each file under an arbitrary interpreter command instead ",
         "of dofile. -i only applies in that standalone mode; in project mode the ",
         "interpreter comes from --lua.",
@@ -184,7 +184,7 @@ Total: 0 warnings / 0 errors in 3 files
       code = [[
 $ toku test --single test/spec/my_lib.lua
 $ toku test --skip-check
-$ toku test --profile
+$ toku test --trace
 $ toku test --lua luajit
 $ toku test -s
 $ toku test -m core -i luajit test/spec
@@ -474,12 +474,41 @@ Removed:
     },
 
     {
+      title = "toku skills: agent guidance, installed globally",
+      desc = table.concat({
+        "Fetches the santoku agent skills from santoku.dev and installs them into your ",
+        "home directory: one SKILL.md per skill under ~/.claude/skills for Claude Code, ",
+        "and one AGENTS.md under ~/.codex for Codex and the other tools that read that ",
+        "standard. It never writes into a project. A manifest beside the installed ",
+        "skills records what it put there, so a later run removes skills that are no ",
+        "longer published rather than leaving stale guidance behind, and it refuses to ",
+        "overwrite an AGENTS.md it did not write unless you pass --force. Claude Code ",
+        "users can instead install the plugin, which is the same content namespaced ",
+        "under the plugin and visible to Cowork. Override the target directories with ",
+        "--claude-dir and --codex-dir, and see what would happen with --dry-run.",
+      }),
+      runnable = false,
+      lang = "text",
+      code = [[
+$ toku skills
+[skills]	fetching https://santoku.dev/skills.txt
+[skills]	fetching https://santoku.dev/AGENTS.md
+[skills]	wrote /home/you/.claude/skills/toku-setup/SKILL.md
+...
+[skills]	wrote /home/you/.codex/AGENTS.md
+
+# or, for Claude Code, as a plugin:
+/plugin marketplace add birchpointswe/santoku-docs
+/plugin install santoku@santoku
+]],
+    },
+
+    {
       title = "toku lua: an instrumented interpreter",
       desc = table.concat({
         "Runs a string or file under the configured interpreter (--lua overrides), ",
-        "assembling -l preloads for the requested instruments: --profile loads ",
-        "santoku.profiler for a performance profile at exit, --trace loads ",
-        "santoku.tracer for line tracing, and --serialize loads santoku.autoserialize, ",
+        "assembling -l preloads for the requested instruments: --trace loads ",
+        "santoku.trace for line tracing, and --serialize loads santoku.autoserialize, ",
         "which wraps the global print so tables come out as readable Lua literals ",
         "instead of table: 0x... addresses.",
       }),
@@ -488,7 +517,6 @@ Removed:
 $ toku lua --string 'print(1 + 2)'
 3
 $ toku lua --serialize --string 'print({ a = 1, b = { 2, 3 } })'
-$ toku lua --file scripts/report.lua --profile
 $ toku lua --file scripts/step-through.lua --trace
 ]],
     },

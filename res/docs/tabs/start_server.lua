@@ -4,9 +4,7 @@ return {
     "This page builds a JSON API with no frontend: an OpenResty server over a ",
     "server-side SQLite database in WAL mode, with one connection and one set of ",
     "prepared statements per nginx worker. It is the server half of the web page ",
-    "beside this one, isolated, with the parts that page only mentions written ",
-    "out: the init versus init_worker split, the pragma set, statement lifetime, ",
-    "and testing the database module natively with no nginx involved. Everything ",
+    "beside this one, isolated. Everything ",
     "assumes toku is installed per the Install tab, plus openresty on PATH and ",
     "OPENRESTY_DIR set (install it from openresty.org/en/installation.html; on ",
     "Debian and Ubuntu their apt repo, on Alpine the community package, then ",
@@ -55,6 +53,43 @@ my-api/server/lib/my_api/web/init_worker.lua
 my-api/server/lib/my_api/web/items.lua
 my-api/server/nginx.tk.conf
 my-api/server/test/spec/my_api.lua
+]],
+    },
+
+    {
+      title = "The init and init_worker split",
+      desc = table.concat({
+        "init_by_lua runs once in the master process before nginx forks its ",
+        "workers; init_worker_by_lua runs once inside each worker afterwards. The ",
+        "scaffold uses that order deliberately. The master opens the database, ",
+        "applies migrations, and closes immediately, because a SQLite connection ",
+        "must not be carried across a fork. Each worker then opens its own ",
+        "connection with no_migrate, since the schema is already current, and ",
+        "prepares its own statements. Values cross between the three phases ",
+        "through package.loaded: init publishes the resolved config, init_worker ",
+        "publishes the open handle, and handlers require that handle rather than ",
+        "constructing one. Requiring the db module directly from a handler instead ",
+        "would open a fresh connection per handler module, which is the failure ",
+        "this layout exists to prevent, and nothing reports it. The pragmas each ",
+        "connection sets are covered on the santoku-sqlite-migrate page.",
+      }),
+      runnable = false,
+      lang = "lua",
+      code = [[
+-- server/lib/my_api/web/init.lua        (init_by_lua, master, once)
+local env = require("santoku.env")
+local db_file = env.var("DB_FILE", "my-api.db")
+local migrator = require("my_api.db")(db_file)
+migrator.db.close()
+package.loaded["my_api.config"] = { db_file = db_file }
+
+-- server/lib/my_api/web/init_worker.lua (init_worker_by_lua, per worker)
+local config = require("my_api.config")
+package.loaded["my_api.db.loaded"] =
+  require("my_api.db")(config.db_file, { no_migrate = true })
+
+-- server/lib/my_api/web/items.lua       (per request)
+local db = require("my_api.db.loaded")
 ]],
     },
 

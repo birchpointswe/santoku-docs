@@ -457,6 +457,166 @@ return {
     },
 
     {
+      title = "Choosing a wasm mechanism",
+      desc = table.concat({
+        "Four mechanisms make code behave differently, or not exist, under wasm, and ",
+        "which one applies follows from what is actually different about the build. A ",
+        "capability compiled out of a C extension is absent, so a nil check settles it. ",
+        "A capability that exists and raises when called needs one invocation probe, ",
+        "because presence reads as available. A module with its own wasm implementation ",
+        "is a filename variant, selected while building rather than branched on at ",
+        "runtime. Text that should not appear in a generated file at all is a template ",
+        "gate, covered on the santoku-template tab under conditional sections with push ",
+        "and pop.",
+      }),
+      runnable = false,
+      lang = "text",
+      code = [[
+absent under wasm          gate on presence    if fs.hardlink then ... end
+exists but always raises   probe once          local ok = pcall(io.popen, "true")
+separate implementation    filename variant    lib/santoku/web/js.wasm.lua
+must not be emitted        template gate       <% push(is_wasm) %> ... <% pop() %>
+]],
+    },
+
+    {
+      title = "Compiling a capability out of a C extension",
+      desc = table.concat({
+        "emcc defines __EMSCRIPTEN__, so a C extension can drop a function the platform ",
+        "cannot support. Guard the body and the luaL_Reg entry together: an entry ",
+        "without a body fails to link, a body without an entry is dead code. santoku-fs ",
+        "does this for hardlink and symlink in lib/santoku/fs/posix.c, which is why ",
+        "fs.hardlink is nil in this site's own wasm bundle and the fs tab feature-detects ",
+        "before calling it. When a module must keep the function and change what it does, ",
+        "guard inside the body, and let Lua see which build it got: santoku.sqlite.db ",
+        "exposes a wasm field set from the same ifdef.",
+      }),
+      runnable = false,
+      lang = "c",
+      code = [[
+#ifndef __EMSCRIPTEN__
+int tk_fs_posix_hardlink (lua_State *L)
+{
+  lua_settop(L, 2);
+  const char *oldpath = luaL_checkstring(L, 1);
+  const char *newpath = luaL_checkstring(L, 2);
+  if (link(oldpath, newpath) == -1)
+    return tk_fs_posix_err(L, errno);
+  return 0;
+}
+#endif
+
+luaL_Reg tk_fs_posix_fns[] =
+{
+  { "mode", tk_fs_posix_mode },
+#ifndef __EMSCRIPTEN__
+  { "hardlink", tk_fs_posix_hardlink },
+  { "symlink", tk_fs_posix_symlink },
+#endif
+  { "touch", tk_fs_posix_touch },
+  { NULL, NULL }
+};
+]],
+    },
+
+    {
+      title = "Gating a spec on the capability it needs",
+      desc = table.concat({
+        "One spec file runs under both toolchains, registering only the tests its target ",
+        "supports. Gate on the capability rather than on the platform: with fs.hardlink ",
+        "nil the suite is shorter under wasm and the spec never names emscripten. ",
+        "santoku-fs gates its hardlink and symlink tests this way, which is what keeps ",
+        "toku test and toku test --wasm both green on the same tree.",
+      }),
+      runnable = false,
+      code = [[
+local test = require("santoku.test")
+local fs = require("santoku.fs")
+
+if fs.hardlink then
+  test("hardlink", function ()
+    fs.writefile("test/res/hl_src.txt", "hello")
+    fs.hardlink("test/res/hl_src.txt", "test/res/hl_dst.txt")
+    assert(fs.readfile("test/res/hl_dst.txt") == "hello")
+    fs.rm("test/res/hl_src.txt")
+    fs.rm("test/res/hl_dst.txt")
+  end)
+end
+]],
+    },
+
+    {
+      title = "When the presence check lies: io.popen",
+      desc = table.concat({
+        "A presence check only answers for capabilities that are genuinely absent, and ",
+        "io.popen is not one of them. toku builds its vendored Lua 5.1.5 for wasm with ",
+        "make all under emmake and MYCFLAGS that do not define LUA_USE_POSIX, so ",
+        "LUA_USE_POPEN is undefined and luaconf.h expands lua_popen to a luaL_error ",
+        "reading 'popen' not supported; liolib.c registers popen regardless. io.popen is ",
+        "therefore a function under emscripten that raises only when called, and a nil ",
+        "check reports it as available. Probe it once at file scope and gate on the ",
+        "result, not inside each test. The same shape covers anything whose failure is ",
+        "deferred to the call: os.execute, host paths, spawning an interpreter.",
+      }),
+      runnable = false,
+      code = [[
+local test = require("santoku.test")
+
+local spawn_ok, spawn_probe = pcall(io.popen, "true")
+local can_spawn = spawn_ok and spawn_probe ~= nil
+if can_spawn then
+  spawn_probe:close()
+end
+
+if can_spawn then
+  test("generators are seeded per process", function ()
+    local f = io.popen("lua5.1 -e \"print(require('santoku.random').fast_random())\"")
+    local out = f:read("*a")
+    f:close()
+    assert(out ~= "" and out ~= nil)
+  end)
+end
+]],
+    },
+
+    {
+      title = "Filename variants: .wasm. sources and specs",
+      desc = table.concat({
+        "A file named <name>.wasm.<ext> is chosen by the build, not by the running ",
+        "program. The generated lib Makefile sets _WASM when CC contains emcc: native ",
+        "builds filter %.wasm.lua, %.wasm.c and %.wasm.cpp out of the file list, wasm ",
+        "builds keep them and strip the .wasm. infix when naming objects and install ",
+        "targets, so lib/santoku/web/js.wasm.lua installs as santoku/web/js.lua and is ",
+        "required as santoku.web.js. Specs follow the same rule in the project layer: ",
+        "test/spec/**/*.wasm.lua is dropped from a native run, and under --wasm each one ",
+        "is bundled to the stripped .js name. This is variant selection, not capability ",
+        "gating. It says nothing about a file both targets share, and a variant with no ",
+        "native counterpart is missing rather than stubbed when you build native. That is ",
+        "how santoku-web ships: its browser runtime modules exist only as .wasm. files, ",
+        "while the build-time pwa helpers, which templates require natively, are plain ",
+        "sources alongside them.",
+      }),
+      runnable = false,
+      lang = "text",
+      code = [[
+lib/santoku/web/js.wasm.lua          installs as santoku/web/js.lua, wasm builds only
+test/spec/santoku/web/dom.wasm.lua   runs under toku test --wasm, skipped natively
+
+ifneq (,$(findstring emcc,$(CC)))
+_WASM = 1
+endif
+
+ifdef _WASM
+LIB_LUA = $(shell find * -name '*.lua')
+else
+LIB_LUA = $(filter-out %.wasm.lua, $(shell find * -name '*.lua'))
+endif
+
+INST_LUA = $(patsubst %.wasm.lua,%.lua,$(addprefix $(INST_LUADIR)/, $(LIB_LUA)))
+]],
+    },
+
+    {
       title = "Per-file rules",
       desc = table.concat({
         "rules.exclude, rules.copy, and rules.template are Lua patterns that drop ",

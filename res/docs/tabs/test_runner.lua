@@ -229,7 +229,7 @@ runner({ "test/spec/santoku/fracidx.lua" }, { stop = true })
 
 runner({ "test/spec", "client/test/spec" }, {
   match = "%.lua$",
-  interp = { "luajit", "-l", "santoku.profile" },
+  interp = { "luajit", "-l", "santoku.trace" },
   stop = true,
 })
 ]],
@@ -288,7 +288,7 @@ Test:   test/spec/santoku/fracidx.lua
 Test:   test/spec/santoku/table.lua
 
 $ toku test -i lua test/spec
-$ toku test -i "luajit -l santoku.profile" test/spec
+$ toku test -i "luajit -l santoku.trace" test/spec
 $ toku test -i "node --expose-gc" test/spec
 ]],
     },
@@ -379,7 +379,7 @@ end
 $ toku test -m fracidx -s test/spec
 Test:   test/spec/santoku/fracidx.lua
 
-$ toku test -s -i "luajit -l santoku.profile" test/spec
+$ toku test -s -i "luajit -l santoku.trace" test/spec
 
 $ toku exec toku test -m sqlite test/spec
 ]],
@@ -391,11 +391,14 @@ $ toku exec toku test -m sqlite test/spec
         "toku test with no file arguments builds the test tree, then its generated ",
         "run.sh invokes the standalone runner with every option at once: stop on ",
         "first failure, one interpreter subprocess per file ($LUA, plus -l ",
-        "santoku.profile or santoku.trace when --profile or --trace was given), ",
-        "and a match anchored to .lua so only Lua sources run from the rendered ",
+        "santoku.trace when --trace was given), and a match anchored to .lua ",
+        "so only Lua sources run from the rendered ",
         "tree. The WASM variant runs the same suite as bundled .js files under ",
         "node, and --single narrows the run to one spec, mapped to its .js ",
-        "counterpart in WASM mode.",
+        "counterpart in WASM mode. A spec that passes natively and fails under --wasm is ",
+        "usually asserting a capability the wasm build does not have; the santoku-make ",
+        "tab covers the gates for that, including the case where a presence check reports ",
+        "a capability that raises when called.",
       }),
       runnable = false,
       code = [[

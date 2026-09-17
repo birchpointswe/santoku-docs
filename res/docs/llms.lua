@@ -19,6 +19,16 @@ local function render (content, site)
   local out = {}
   local push = pusher(out)
   preamble(push, content)
+  push("## Full reference\n\n")
+  push("This file is an index. ", site, "/llms-full.txt carries every page in full, ",
+    "including every documented example with its code. Read it before inferring an ",
+    "API from surrounding code.\n\n")
+  push("## Agent skills\n\n")
+  push(site, "/AGENTS.md is the same guidance as a single AGENTS.md file, for any agent ",
+    "that reads one. ", site, "/skills.txt is the machine-readable bundle that ",
+    "toku skills installs. For Claude Code, install the plugin: ",
+    "/plugin marketplace add birchpointswe/santoku-docs, then ",
+    "/plugin install santoku@santoku.\n\n")
   local order, groups = {}, {}
   for i = 1, #content.tabs do
     local tab = content.tabs[i]

@@ -33,6 +33,7 @@ end
 
 local stable_files = {
   "llms.txt", "llms-full.txt", "sitemap.xml", "setup-toku.sh",
+  "skills.txt", "AGENTS.md",
   "logo.svg", "logo.png",
 }
 for _, rock in ipairs(banner_rocks) do

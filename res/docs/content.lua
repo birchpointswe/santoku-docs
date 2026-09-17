@@ -62,7 +62,7 @@ return {
       url = repo .. "lua-santoku-sqlite-migrate",
       content = require("docs.tabs.sqlite_migrate") },
     { id = "santoku-make", label = "santoku-make", group = "Build and test",
-      desc = "the project build harness behind toku: a dependency-graph engine plus a descriptor-driven project layer for lib, bin, and web packages",
+      desc = "the project build harness behind toku: a dependency-graph engine, a descriptor-driven project layer for lib, bin, and web packages, and the four ways code is gated out of or varied for WebAssembly builds",
       url = repo .. "lua-santoku-make",
       content = require("docs.tabs.make") },
     { id = "santoku-cli", label = "santoku-cli", group = "Build and test",

@@ -124,6 +124,36 @@ test("setup-toku.sh pins match the santoku-cli setup pins", function ()
   end
 end)
 
+test("res/skills matches the order in res/docs/skills.lua", function ()
+  local listed = {}
+  for _, name in ipairs(req("docs.skills").order) do
+    listed[name] = true
+  end
+  local present = {}
+  for fp in fs.files("res/skills", true) do
+    if fs.basename(fp) == "SKILL.md" then
+      present[fs.basename(fs.dirname(fp))] = true
+    end
+  end
+  same("skill set",
+    listed, "the order array in res/docs/skills.lua",
+    present, "the directories under res/skills",
+    "a skill is one directory holding a SKILL.md, and the order array is both the "
+      .. "emitted order and what makes the sources a tracked build dependency")
+end)
+
+test("skills render and their santoku.dev links resolve", function ()
+  local skills = req("docs.skills")
+  local loaded = skills.load({
+    readfile = fs.readfile,
+    root_dir = ".",
+    content = content,
+    site = "https://santoku.dev",
+  })
+  skills.render_pack(loaded)
+  skills.render_agents(loaded, content, "https://santoku.dev")
+end)
+
 test("scaffold listings match toku init output", function ()
   check_scaffold_listing(tabs.start_lib, "start_lib",
     "Scaffold a library project", scaffold.lib, "toku init")

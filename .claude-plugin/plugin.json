@@ -1,0 +1,15 @@
+{
+  "name": "santoku",
+  "displayName": "santoku",
+  "description": "Agent skills for santoku and toku: toolchain setup, project layout and the build loop, .tk templates, santoku primitives over the Lua standard library, WebAssembly capability gating, and the API reference.",
+  "version": "0.0.2",
+  "author": {
+    "name": "Birch Point SWE",
+    "url": "https://santoku.dev"
+  },
+  "homepage": "https://santoku.dev",
+  "repository": "https://github.com/birchpointswe/santoku-docs",
+  "license": "MIT",
+  "keywords": ["lua", "lua51", "santoku", "toku", "luarocks", "webassembly", "openresty"],
+  "skills": "./res/skills"
+}

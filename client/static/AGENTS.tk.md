@@ -1,0 +1,16 @@
+<%
+  local fs = require("santoku.fs")
+  local req = assert(loadstring(readfile(fs.join(root_dir, "res/docs/load.lua")), "@res/docs/load.lua"))()({
+    readfile = readfile,
+    root_dir = root_dir,
+    gen_dir = fs.join(work_dir, "lib"),
+  })
+  local skills = req("docs.skills")
+  local content = req("docs.content")
+  return skills.render_agents(skills.load({
+    readfile = readfile,
+    root_dir = root_dir,
+    content = content,
+    site = client.site,
+  }), content, client.site)
+%>

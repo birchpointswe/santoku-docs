@@ -233,7 +233,7 @@ print("wrote main.lua and its dependency rule")
 
     {
       title = "Config values into Lua source",
-      desc = "A .tk.lua file bakes project configuration into the shipped module. toku web projects hand every template an env carrying name, version, client, server, nginx, environment, component, target, dist_dir, work_dir, hashed, and readfile.",
+      desc = "A .tk.lua file bakes project configuration into the shipped module. toku web projects hand every template an env carrying name, version, client, server, nginx, environment, component, target, dist_dir, work_dir, hashed, and readfile. Interpolation like this is for values. To leave code out of a build entirely, gate it with push and pop: a rendered runtime condition still compiles the dead branch and everything inside it into the output.",
       runnable = false,
       code = [[
 return {
