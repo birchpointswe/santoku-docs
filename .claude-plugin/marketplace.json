@@ -1,5 +1,6 @@
 {
   "name": "santoku",
+  "description": "Agent skills for the santoku Lua framework and its toku build harness.",
   "owner": {
     "name": "Birch Point SWE",
     "url": "https://santoku.dev"

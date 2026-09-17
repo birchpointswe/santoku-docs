@@ -70,7 +70,7 @@ local function parse (name, src)
   if #fields.description > 1024 then
     err.error("skill description exceeds 1024 characters", name, #fields.description)
   end
-  local body = str.sub(src, close + 5)
+  local body = (str.gsub(str.sub(src, close + 5), "^\n+", ""))
   local title = str.match(body, "^# ([^\n]+)\n")
   if not title then
     err.error("skill body must open with a level one heading", name)
