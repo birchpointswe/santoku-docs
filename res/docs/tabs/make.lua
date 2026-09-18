@@ -726,7 +726,7 @@ return {
       dependencies = {
         "lua == 5.1",
         "santoku-resty >= 2.0.0, < 3.0.0",
-        "santoku-sqlite >= 3.0.0, < 4.0.0",
+        "santoku-sqlite >= 4.0.1, < 5.0.0",
       },
     },
     client = {
