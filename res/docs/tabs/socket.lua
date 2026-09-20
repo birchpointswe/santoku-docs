@@ -12,8 +12,8 @@ return {
     "needs native TLS sockets, so it runs in servers, CLIs, and scripts rather than ",
     "in this page: the examples are shown for reading, except the response model, ",
     "which is plain Lua and runs live. The examples run in order: ",
-    "fetch, the response contract, failure paths, request and cancel, sleep, and ",
-    "composition with santoku-http.",
+    "fetch, the response contract, failure paths, request and cancel, sleep, ",
+    "composition with santoku-http, and the raw TLS stream driver underneath it all.",
   }),
 
   examples = {
@@ -307,6 +307,110 @@ local function ping (http)
   return ok and resp.body()
 end
 return ping
+]],
+    },
+
+    {
+      title = "santoku.socket.stream: the raw TLS stream driver",
+      desc = table.concat({
+        "Protocols that are not request and response need bytes rather than ",
+        "messages. santoku.socket.stream is that layer: connect(opts, done) dials ",
+        "host and port, wraps the socket in TLS unless tls = false, and hands ",
+        "done(ok, conn) a connection with write, close and step. Inbound data is ",
+        "pushed, not pulled: every chunk the socket produces goes to the data ",
+        "callback in whatever fragmentation the network gave it, and reassembly is ",
+        "the protocol's job. Because LuaSocket blocks and has no event loop, this ",
+        "driver also exposes step(ms), one bounded read delivered through the same ",
+        "data callback; it returns true, \"timeout\" when the window passed with ",
+        "nothing to read, and false plus a reason once the connection is gone. ",
+        "connect_timeout_ms defaults to 30000, and sslname overrides the SNI name ",
+        "when it differs from host.",
+      }),
+      runnable = false,
+      code = [[
+local stream = require("santoku.socket.stream")
+stream.connect({
+  host = "imap.example.com",
+  port = 993,
+  data = function (chunk) print("read", #chunk, "bytes") end,
+  closed = function (e) print("closed:", e) end,
+}, function (ok, conn)
+  if not ok then
+    return print("connect failed:", conn)
+  end
+  print("verified:", conn.tls.verified)
+  conn.write("A1 CAPABILITY\r\n")
+  for _ = 1, 10 do
+    conn.step(200)
+  end
+  conn.close()
+end)
+return true
+]],
+    },
+
+    {
+      title = "Verification is on, and the hostname is checked here",
+      desc = table.concat({
+        "luasec verifies the certificate chain and nothing else, so this driver does ",
+        "the rest. It finds a system CA bundle by probing known locations (Termux ",
+        "first, then the common Linux paths), verifies the chain against it, and ",
+        "matches the target name against the certificate's subjectAltName dNSName ",
+        "entries, falling back to commonName and honouring a single leading ",
+        "wildcard label. A mismatch closes the connection and reports which names ",
+        "the certificate actually carries. No bundle found is a hard error rather ",
+        "than a silent downgrade: pass cafile or capath to point at your own, or ",
+        "verify = false to opt out deliberately. conn.tls reports the outcome, ",
+        "carrying verified, the bundle used, and the names matched against. ",
+        "stream.ca_paths is the probe list and can be extended before connecting.",
+      }),
+      runnable = false,
+      code = [[
+local stream = require("santoku.socket.stream")
+stream.connect({
+  host = "imap.example.com",
+  port = 993,
+  cafile = "/etc/ssl/certs/ca-certificates.crt",
+  data = function (chunk) print(#chunk) end,
+}, function (ok, conn)
+  print(ok, ok and conn.tls.verified, ok and conn.tls.names[1])
+end)
+stream.connect({
+  host = "192.0.2.10",
+  port = 993,
+  verify = false,
+  data = function () end,
+}, function (ok, conn)
+  print("unverified:", ok, conn.tls.verified)
+end)
+return true
+]],
+    },
+
+    {
+      title = "One driver contract, every runtime",
+      desc = table.concat({
+        "The driver is injected, so a protocol written against this contract runs ",
+        "unchanged wherever a driver exists: santoku.socket.stream over LuaSocket ",
+        "and LuaSec, santoku.web.stream over node tls under wasm, and ",
+        "santoku.resty.stream over ngx cosockets. santoku-imap is the consumer to ",
+        "read: it takes a driver and detects whether step is present, pumping ",
+        "internally on a pull driver so that completion is synchronous there and ",
+        "event-driven on a push driver, with the same callback API either way.",
+      }),
+      runnable = false,
+      code = [[
+local imap = require("santoku.imap")(require("santoku.socket.stream"))
+imap.connect({ host = "imap.example.com", port = 993 }, function (ok, client)
+  if not ok then
+    return print("connect failed:", client)
+  end
+  client.login("me@example.com", "app-password", function (okl)
+    print("login:", okl)
+    client.logout(function () end)
+  end)
+end)
+return true
 ]],
     },
 

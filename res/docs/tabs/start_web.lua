@@ -104,6 +104,72 @@ $ ./toku-web.sh -p 8080:8080 -p 8443:8443 -- start --test
     },
 
     {
+      title = "Deploying in a container: toku-web-deployment",
+      desc = table.concat({
+        "toku-web is a build image; none of that toolchain is needed to serve the ",
+        "built tree. toku-web-deployment is the runtime base: debian:bookworm-slim ",
+        "with openresty from the upstream repo, ca-certificates kept, gnupg and wget ",
+        "purged, OPENRESTY_DIR set, WORKDIR /app, and a default CMD of ",
+        "sh -c \"umask 002; exec ./run.sh --fg\". Build it from the lua-santoku-make ",
+        "checkout root, since it copies a file out of the build context. It carries a ",
+        "non-root system user worker (uid 10001, gid 0, no home, nologin) and sets no ",
+        "USER directive, so the nginx master starts as whatever the runtime assigns ",
+        "and the config's own user directive drops the workers. apt still works, but ",
+        "the package lists are stripped: run apt-get update before any apt-get ",
+        "install and remove the lists afterwards. A downstream image adds three ",
+        "things: the built tree, one toku-deploy-setup call, and a WORKDIR at the ",
+        "dist directory. toku-deploy-setup takes the build tree (dist defaults to ",
+        "<build-tree>/main/dist), deletes the .o, .a and .link install ",
+        "intermediates, applies the arbitrary-uid permission convention, marks run.sh ",
+        "executable, points the access and error logs at stdout and stderr, and runs ",
+        "ldconfig.",
+      }),
+      runnable = false,
+      lang = "text",
+      code = [[
+$ docker build -t toku-web-deployment -f toku-web-deployment.dockerfile .
+
+FROM toku-web AS builder
+WORKDIR /app
+COPY . .
+RUN MY_APP_SSL_CERT=/home/app/cert.pem \
+    MY_APP_SSL_KEY=/home/app/privkey.pem \
+    toku build --env prod
+
+FROM toku-web-deployment
+COPY --from=builder /app/build/prod /app/build/prod
+RUN toku-deploy-setup /app/build/prod
+WORKDIR /app/build/prod/main/dist
+
+# adding native libraries downstream: update first, strip the lists again
+FROM toku-web-deployment
+RUN apt-get update \
+    && apt-get -y install --no-install-recommends libsqlite3-0 \
+    && rm -rf /var/lib/apt/lists/*
+]],
+    },
+
+    {
+      title = "Configuration is baked at build time, not at container start",
+      desc = table.concat({
+        "SSL certificate and key paths, ports and the domain belong in the builder ",
+        "stage. The configure hook reads them while rendering nginx.conf, and the ",
+        "generated run.sh exports only the values baked in at render time before ",
+        "exec'ing openresty against a static config. Nothing re-renders when the ",
+        "container starts, so the same variables set in the runtime stage have no ",
+        "effect. The names come from your variable_prefix, so a project named my-app ",
+        "reads MY_APP_SSL_CERT rather than SSL_CERT. Building with --env prod also ",
+        "requires a make.prod.lua, which no scaffold ships; the smallest one that ",
+        "works returns a table merged over make.lua.",
+      }),
+      runnable = false,
+      lang = "lua",
+      code = [[
+return { env = { server = { host = "example.com" } } }
+]],
+    },
+
+    {
       title = "Scaffold a web project",
       desc = table.concat({
         "The result builds and runs unmodified. The client keeps its data in an ",

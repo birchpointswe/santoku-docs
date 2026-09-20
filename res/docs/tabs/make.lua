@@ -217,6 +217,36 @@ return test_env.root_dir
     },
 
     {
+      title = "The descriptor's environment is part of the staleness key",
+      desc = table.concat({
+        "A descriptor that reads env.var parameterises the build by the ",
+        "environment, and mtimes alone would miss that: make.lua is the tracked ",
+        "file, not the variables it read. So santoku-make writes the resolved ",
+        "descriptor to build/<env>/config.stamp (build/<env>-wasm/config.stamp for ",
+        "a wasm build) and tracks that stamp alongside the descriptor. ",
+        "WORKERS=4 toku build re-renders everything the value feeds without ",
+        "touching make.lua, and running again with the environment unchanged is ",
+        "still a no-op. One limitation to know: env.var called inside the configure ",
+        "hook is not captured, because the hook runs after the stamp is written and ",
+        "those values never land in the config table. Read such values in the ",
+        "descriptor and pass them through env if you want them tracked.",
+      }),
+      runnable = false,
+      lang = "text",
+      code = [[
+-- make.lua
+local env = require("santoku.env")
+return { env = { nginx = { workers = env.var("WORKERS", "auto") } } }
+
+$ toku build --test        # worker_processes auto
+$ WORKERS=4 toku build --test
+$ WORKERS=4 toku build --test   # no-op, the stamp matches
+
+$ cat build/default/config.stamp   # the key: the whole resolved descriptor
+]],
+    },
+
+    {
       title = ".tk files: templates rendered with the project env",
       desc = table.concat({
         "Any file named *.tk or *.tk.* is rendered through santoku.template against ",
@@ -233,6 +263,40 @@ local src = "return { name = \"<% return name %>\", " ..
 local out = template.render(src, env)
 print(out)
 return out
+]],
+    },
+
+    {
+      title = "Conditionals in a .tk file need push and pop",
+      desc = table.concat({
+        "Each <% %> block is compiled as its own chunk, so a Lua if cannot span two ",
+        "of them. Writing one is the common first mistake in a .tk file and the ",
+        "error does not lead anywhere useful: the chunk name is the block's own ",
+        "text, so you get 'end' expected near '<eof>' with no file name and no ",
+        "mention of the mechanism. Emit conditionally with push(cond) and pop() ",
+        "instead, which the template engine injects for exactly this: text between ",
+        "them is emitted only when the condition held, and pairs nest. The ",
+        "santoku-template tab has the full treatment, including showing().",
+      }),
+      runnable = false,
+      lang = "text",
+      code = [[
+# server/nginx.tk.conf, the form that fails to compile
+<% if access_log_on then %>
+  access_log <% return n.access_log %>;
+<% else %>
+  access_log off;
+<% end %>
+
+toku: [string " if access_log_on then "]:1: 'end' expected near '<eof>'
+
+# the form that works
+<% push(access_log_on) %>
+  access_log <% return n.access_log %>;
+<% pop() %>
+<% push(not access_log_on) %>
+  access_log off;
+<% pop() %>
 ]],
     },
 

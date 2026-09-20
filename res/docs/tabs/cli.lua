@@ -24,8 +24,9 @@ return {
         "argparse declarations in bin/toku.tk.lua. Every invocation also accepts ",
         "--verbosity N (default 1): 0 silences the [make] line printed per rebuilt ",
         "target, 2 and up adds [ok], [src], and [phony] trace lines. build, start, and ",
-        "stop apply to web projects; the rest of the lifecycle works on both project ",
-        "types.",
+        "stop apply to web projects, and a server-only API project is a web project ",
+        "to the harness, so all three apply to it too. install, pack and exec are ",
+        "the mirror image: library projects only.",
       }),
       runnable = false,
       code = [[
@@ -139,6 +140,36 @@ my-lib-0.0.1-1.rockspec
 $ toku test --env prod
 $ ls build
 default  prod
+]],
+    },
+
+    {
+      title = "The build tree for web and API projects",
+      desc = table.concat({
+        "A library project builds one tree per environment. A web or API project ",
+        "builds two, main and test, and each holds three subtrees: client, server ",
+        "and dist. Only dist carries a lua_modules, because dist is what OpenResty ",
+        "runs with -p, so the rendered nginx.conf refers to it by relative path. A ",
+        "server-only project still gets a client subtree, holding little more than a ",
+        "lua_modules.ok stamp. When a script needs the project's own modules and its ",
+        "pinned rocks, dist/lua_modules is the tree to point LUA_PATH and LUA_CPATH ",
+        "at. dist also holds run.sh, nginx.conf, server.pid and logs.",
+      }),
+      runnable = false,
+      code = [[
+$ ls build/default/test
+client  dist  server
+
+$ ls build/default/test/dist       # public/ too, when the project has a client
+lua_modules  nginx.conf  nginx-fg.conf  run.sh
+
+$ ls build/default/test/dist       # after a start: run.sh makes these
+logs  lua_modules  nginx.conf  nginx-fg.conf  run.sh  server.pid  temp
+
+$ export LUA_PATH="$PWD/build/default/test/dist/lua_modules/share/lua/5.1/?.lua;\
+$PWD/build/default/test/dist/lua_modules/share/lua/5.1/?/init.lua;;"
+$ export LUA_CPATH="$PWD/build/default/test/dist/lua_modules/lib/lua/5.1/?.so;;"
+$ toku lua scripts/load.lua
 ]],
     },
 
@@ -390,7 +421,8 @@ my-app/server/test/spec
         "prefix as usual: a dev server runs as DB_FILE=tmp.db toku start ",
         "--test. toku test on a web project needs no manual start: when server specs ",
         "exist it stops any old server, starts a fresh test one, waits for its pid ",
-        "file, and fails fast if the process dies (check the nginx error log).",
+        "file, and fails fast if the process dies (check the nginx error log). All of ",
+        "this applies to an API project unchanged.",
       }),
       runnable = false,
       code = [[
@@ -399,6 +431,35 @@ $ DB_FILE=tmp.db toku start --test
 $ toku test
 $ toku stop
 $ toku start --fg
+]],
+    },
+
+    {
+      title = "Scripting start and stop",
+      desc = table.concat({
+        "start returns once dist/server.pid exists, or fails after ",
+        "nginx.start_timeout seconds (60 by default) with the [emerg] line from the ",
+        "error log. --fg, or TOKU_FG set to anything but 0 or empty, execs openresty ",
+        "instead and never returns, which is what a container needs. One trap in ",
+        "between: the backgrounded server inherits the standard output it was ",
+        "started with, so a piped or non-interactive invocation (ssh host 'toku ",
+        "start --test; curl ...') hangs on the open pipe even though toku itself has ",
+        "already exited. Redirect the server's output, or drive dist/run.sh yourself: ",
+        "it is a plain script, it writes the same pid file, and stop reads that file ",
+        "to send SIGTERM.",
+      }),
+      runnable = false,
+      lang = "text",
+      code = [[
+$ toku start --test >/dev/null 2>&1        # returns once dist/server.pid exists
+$ curl -s http://127.0.0.1:8080/items
+$ toku stop
+
+# or run the generated script directly, detached from the calling shell
+$ cd build/default/test/dist
+$ setsid nohup sh run.sh >/dev/null 2>&1
+$ cat server.pid
+$ kill -15 "$(cat server.pid)"
 ]],
     },
 
@@ -431,7 +492,11 @@ $ toku test --single server/test/spec/my-app.lua
         "Installs the test dependencies if needed, then runs an arbitrary command in ",
         "build/default/test with LUA_PATH and LUA_CPATH pointing at that tree's ",
         "lua_modules, so ad-hoc scripts run against the same tree the specs do: the ",
-        "rendered sources and the pinned rocks.",
+        "rendered sources and the pinned rocks. It is a library-project command; on a ",
+        "web or API project it errors with \"exec is not available (requires a ",
+        "non-wasm lib project)\", because those trees have no single lua_modules to ",
+        "select. Set the two variables yourself against dist/lua_modules there, as ",
+        "the build tree section above shows.",
       }),
       runnable = false,
       code = [[

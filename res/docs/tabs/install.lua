@@ -12,7 +12,11 @@ return {
     "that one directory, and toku setup --uninstall removes it entirely. It builds its ",
     "own lua because santoku rocks pin lua == 5.1, which a system luarocks targeting a ",
     "newer lua cannot install. Prerequisites: cc, make, tar, unzip, curl or wget, and a ",
-    "sha256 tool (sha256sum, shasum, or openssl).",
+    "sha256 tool (sha256sum, shasum, or openssl). ",
+    "This is the only supported install. A toku that arrives on PATH some other way ",
+    "is a shell shim that execs a lua5.1 it does not own, which on a distribution ",
+    "with no lua5.1 package fails with exec: /usr/bin/lua5.1: not found. Run ",
+    "setup-toku.sh and use the toku it installs.",
   }),
 
   examples = {
@@ -53,17 +57,47 @@ no problems found
     },
 
     {
+      title = "What the managed toolchain is, and how toku uses it",
+      desc = table.concat({
+        "Until setup has run, every command that needs lua or luarocks (toku lua, ",
+        "toku luarocks, and the whole project lifecycle) errors and names the step ",
+        "to run. Afterwards toku prepends the managed bin directories to PATH inside ",
+        "its own process, so every lua and luarocks invocation a toku-driven build ",
+        "makes uses the managed pair. Nothing outside that process changes. To reach ",
+        "the same pair from your shell, wire PATH yourself as the transcript above ",
+        "does, or symlink the binaries you want out of the directories toku setup ",
+        "--path prints. The passthrough commands run the managed tools directly: ",
+        "toku lua is the managed interpreter with the managed rocks tree on its ",
+        "package path, and toku bundle --luac-default compiles bytecode with the ",
+        "managed luac, so a system luac built for a newer Lua cannot corrupt a ",
+        "bundle.",
+      }),
+      runnable = false,
+      lang = "text",
+      code = [[
+$ toku lua scripts/load.lua      # managed lua, managed rocks tree on the package path
+$ toku luarocks list             # passthrough to the managed luarocks
+$ toku luac -o out.luac in.lua   # passthrough to the managed luac
+$ toku setup --path              # the managed bin directories, colon-joined
+]],
+    },
+
+    {
       title = "Maintenance: doctor, repair, upgrade, uninstall",
       desc = table.concat({
         "The provisioning script stores a copy of itself at ",
         "~/.local/share/toku/setup-toku.sh, so the managed tree always carries the ",
-        "script that built it. toku setup --repair and --upgrade re-run that stored ",
-        "copy with --rebuild: lua and luarocks are rebuilt at the pinned versions and ",
-        "santoku-cli is reinstalled, while the installed rocks tree is kept. If the ",
-        "stored copy is missing, or it pins different versions than the installed ",
-        "santoku-cli, both commands error and point you back to this page for the ",
-        "current script. toku doctor is the health check to reach for first; it names ",
-        "the exact command that fixes each problem it finds.",
+        "script that built it. toku setup with no flag re-runs that copy to complete ",
+        "a partial tree and is safe to repeat. toku setup --repair and --upgrade ",
+        "re-run it with --rebuild: lua and luarocks are rebuilt at the pinned ",
+        "versions and santoku-cli is reinstalled, while the installed rocks tree is ",
+        "kept. If the stored copy is missing, or it pins different versions than the ",
+        "installed santoku-cli, both commands error and point you back to this page ",
+        "for the current script. toku doctor is the health check to reach for first: ",
+        "it reports the mode, the lua and luarocks actually in effect, tree health, ",
+        "version drift against the pins, your shell PATH wiring and the build ",
+        "prerequisites, exits nonzero when it finds a problem, and names the command ",
+        "that fixes each one.",
       }),
       runnable = false,
       lang = "text",
@@ -74,6 +108,29 @@ $ toku setup --repair      # rebuild a broken managed tree, keeping installed ro
 $ toku setup --upgrade     # rebuild at the pinned versions after upgrading santoku-cli
 $ toku setup --path        # print the managed bin directories for PATH wiring
 $ toku setup --uninstall   # remove ~/.local/share/toku entirely
+]],
+    },
+
+    {
+      title = "Upgrading santoku-cli itself",
+      desc = table.concat({
+        "toku setup --upgrade rebuilds lua and luarocks at the versions the ",
+        "installed santoku-cli pins; it does not fetch a newer santoku-cli. Upgrading ",
+        "the CLI is a luarocks install into the managed rocks tree, and toku setup ",
+        "--upgrade afterwards realigns lua and luarocks with whatever the new version ",
+        "pins. Upgrade santoku-make in the same way when a page names a minimum for ",
+        "it: luarocks resolves an already-satisfied constraint by installing nothing, ",
+        "so a santoku-cli that is newer than the santoku-make beside it can fail ",
+        "inside toku with a nil-call traceback rather than a version message. ",
+        "toku doctor reports both versions.",
+      }),
+      runnable = false,
+      lang = "text",
+      code = [[
+$ luarocks --tree="$HOME/.local/share/toku/rocks" install santoku-cli
+$ luarocks --tree="$HOME/.local/share/toku/rocks" install santoku-make
+$ toku setup --upgrade
+$ toku doctor
 ]],
     },
 

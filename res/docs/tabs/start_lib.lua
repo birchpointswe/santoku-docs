@@ -77,6 +77,37 @@ $ ./toku-lib.sh -- pack
     },
 
     {
+      title = "Shipping in a container: toku-lib-deployment",
+      desc = table.concat({
+        "toku-lib is a build image and carries a toolchain no library needs at ",
+        "runtime. A library project has no long-running process either: the ",
+        "deployable artifact is the bundled executable from toku install --bundled, ",
+        "whose dynamic dependencies reduce to system libraries plus liblua5.1. ",
+        "toku-lib-deployment is that runtime base, debian:bookworm-slim plus ",
+        "liblua5.1-0 and ca-certificates, with a non-root system user worker and ",
+        "WORKDIR /app. Build it from the lua-santoku-make checkout root. Its apt ",
+        "works but its package lists are stripped, so a downstream layer adding ",
+        "native libraries must run apt-get update first and remove the lists again ",
+        "afterwards.",
+      }),
+      runnable = false,
+      lang = "text",
+      code = [[
+$ docker build -t toku-lib-deployment -f toku-lib-deployment.dockerfile .
+
+FROM toku-lib AS builder
+WORKDIR /app
+COPY . .
+RUN toku install --bundled --prefix /usr/local
+
+FROM toku-lib-deployment
+COPY --from=builder /usr/local/bin/mytool /usr/local/bin/mytool
+USER worker
+ENTRYPOINT ["mytool"]
+]],
+    },
+
+    {
       title = "Scaffold a library project",
       desc = table.concat({
         "toku init creates a complete, already-working rock: a Lua module, a C ",

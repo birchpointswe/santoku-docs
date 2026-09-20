@@ -209,12 +209,17 @@ test("example dependency constraints admit the installed rock versions", functio
     if not fs.exists(dir) then
       return nil
     end
+    local ba, bb, bc
     for name in fs.dir(dir) do
       local a, b, c = str.match(name, "^(%d+)%.(%d+)%.(%d+)%-%d+$")
       if a then
-        return tonumber(a), tonumber(b), tonumber(c)
+        a, b, c = tonumber(a), tonumber(b), tonumber(c)
+        if not ba or a > ba or (a == ba and (b > bb or (b == bb and c > bc))) then
+          ba, bb, bc = a, b, c
+        end
       end
     end
+    return ba, bb, bc
   end
   for i = 1, #content.tabs do
     local tab = content.tabs[i]
