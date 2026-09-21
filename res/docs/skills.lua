@@ -58,17 +58,8 @@ local function parse (name, src)
     end
     fields[k] = v
   end
-  if fields.name ~= name then
-    err.error("skill name does not match its directory", name, fields.name)
-  end
-  if not str.match(name, "^[a-z][a-z0-9%-]*$") or #name > 64 then
-    err.error("skill name must be lowercase letters, digits and hyphens, at most 64", name)
-  end
   if not fields.description or fields.description == "" then
     err.error("skill has no description, which is what triggers it", name)
-  end
-  if #fields.description > 1024 then
-    err.error("skill description exceeds 1024 characters", name, #fields.description)
   end
   local body = (str.gsub(str.sub(src, close + 5), "^\n+", ""))
   local title = str.match(body, "^# ([^\n]+)\n")

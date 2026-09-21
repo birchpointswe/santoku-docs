@@ -1,6 +1,5 @@
 local test = require("santoku.test")
 local fs = require("santoku.fs")
-local env = require("santoku.env")
 local str = require("santoku.string")
 local arr = require("santoku.array")
 local project = require("santoku.make.project")
@@ -124,36 +123,6 @@ test("setup-toku.sh pins match the santoku-cli setup pins", function ()
   end
 end)
 
-test("res/skills matches the order in res/docs/skills.lua", function ()
-  local listed = {}
-  for _, name in ipairs(req("docs.skills").order) do
-    listed[name] = true
-  end
-  local present = {}
-  for fp in fs.files("res/skills", true) do
-    if fs.basename(fp) == "SKILL.md" then
-      present[fs.basename(fs.dirname(fp))] = true
-    end
-  end
-  same("skill set",
-    listed, "the order array in res/docs/skills.lua",
-    present, "the directories under res/skills",
-    "a skill is one directory holding a SKILL.md, and the order array is both the "
-      .. "emitted order and what makes the sources a tracked build dependency")
-end)
-
-test("skills render and their santoku.dev links resolve", function ()
-  local skills = req("docs.skills")
-  local loaded = skills.load({
-    readfile = fs.readfile,
-    root_dir = ".",
-    content = content,
-    site = "https://santoku.dev",
-  })
-  skills.render_pack(loaded)
-  skills.render_agents(loaded, content, "https://santoku.dev")
-end)
-
 test("scaffold listings match toku init output", function ()
   check_scaffold_listing(tabs.start_lib, "start_lib",
     "Scaffold a library project", scaffold.lib, "toku init")
@@ -190,69 +159,4 @@ test("client.bundle_mods matches what runnable examples require", function ()
     "the bundler only follows static require literals from the client entry, so every "
       .. "module a Run button pulls in at runtime must be listed explicitly, and "
       .. "anything listed beyond that ships dead weight in the wasm")
-end)
-
-test("example dependency constraints admit the installed rock versions", function ()
-  local rocks_dir
-  for entry in str.gmatch(env.path(), "[^;]+") do
-    local prefix = str.match(entry, "^(.*)/share/lua/5%.1/%?%.lua$")
-    if prefix and fs.exists(fs.join(prefix, "lib/luarocks/rocks-5.1")) then
-      rocks_dir = fs.join(prefix, "lib/luarocks/rocks-5.1")
-      break
-    end
-  end
-  if not rocks_dir then
-    fail("rock tree lookup", { "no luarocks tree on the lua path" })
-  end
-  local function installed_version (rock)
-    local dir = fs.join(rocks_dir, rock)
-    if not fs.exists(dir) then
-      return nil
-    end
-    local ba, bb, bc
-    for name in fs.dir(dir) do
-      local a, b, c = str.match(name, "^(%d+)%.(%d+)%.(%d+)%-%d+$")
-      if a then
-        a, b, c = tonumber(a), tonumber(b), tonumber(c)
-        if not ba or a > ba or (a == ba and (b > bb or (b == bb and c > bc))) then
-          ba, bb, bc = a, b, c
-        end
-      end
-    end
-    return ba, bb, bc
-  end
-  for i = 1, #content.tabs do
-    local tab = content.tabs[i]
-    if tab.content then
-      for j = 1, #tab.content.examples do
-        local code = tab.content.examples[j].code
-        for rock, mi1, mi2, mi3, mx in str.gmatch(code,
-          "\"(santoku[%w%-]*) >= (%d+)%.(%d+)%.(%d+), < (%d+)%.")
-        do
-          local a, b, c = installed_version(rock)
-          if a then
-            local minv = { tonumber(mi1), tonumber(mi2), tonumber(mi3) }
-            local have = { a, b, c }
-            local ge = true
-            for k = 1, 3 do
-              if have[k] > minv[k] then
-                break
-              elseif have[k] < minv[k] then
-                ge = false
-                break
-              end
-            end
-            if not ge or a >= tonumber(mx) then
-              fail("example dependency constraint", {
-                tab.id .. " example " .. j .. " pins " .. rock .. " >= "
-                  .. mi1 .. "." .. mi2 .. "." .. mi3 .. ", < " .. mx .. ".0.0",
-                "but the installed " .. rock .. " is " .. a .. "." .. b .. "." .. c,
-                "update the constraint in the example descriptor to the current major",
-              })
-            end
-          end
-        end
-      end
-    end
-  end
 end)

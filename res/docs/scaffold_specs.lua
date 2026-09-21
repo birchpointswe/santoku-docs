@@ -17,6 +17,5 @@ local function build (snapshot, dir_for)
 end
 
 return {
-  specs = specs,
   build = build,
 }
