@@ -440,7 +440,7 @@ for d = 1, #texts do
     v[tok:get(j)] = c
     ss = ss + c * c
   end
-  local inv = ss > 0 and 1 / math.sqrt(ss) or 0
+  local inv = ss > 0 and 1 / num.sqrt(ss) or 0
   for k, c in pairs(v) do v[k] = c * inv end
   docs[d] = v
 end

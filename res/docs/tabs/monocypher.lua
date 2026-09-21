@@ -231,12 +231,12 @@ local str = require("santoku.string")
 local id = crypto.derive_identity("secret one", 1024, 1)
 local key = crypto.derive_key("secret one", id)
 print("truncated:", key:decrypt("AA"))
-print("unknown version:", key:decrypt(str.to_base64(string.char(3) .. string.rep("x", 40))))
+print("unknown version:", key:decrypt(str.to_base64(str.char(3) .. str.rep("x", 40))))
 local ct = key:encrypt("hello", "sub:1")
 print("missing aad:", key:decrypt(ct))
 print("wrong aad:", key:decrypt(ct, "sub:2"))
 local raw = str.from_base64(key:encrypt("hello"))
-local flipped = raw:sub(1, 29) .. string.char((raw:byte(30) + 1) % 256) .. raw:sub(31)
+local flipped = raw:sub(1, 29) .. str.char((raw:byte(30) + 1) % 256) .. raw:sub(31)
 print("bit flipped:", key:decrypt(str.to_base64(flipped)))
 return select(2, key:decrypt(ct, "sub:2"))
 ]],
@@ -326,7 +326,7 @@ local function verify (sig, body)
 end
 print("genuine:", verify(signature, payload))
 print("tampered:", verify(signature, payload .. "x"))
-print("forged:", verify(string.rep("0", 64), payload))
+print("forged:", verify(str.rep("0", 64), payload))
 return verify(signature, payload)
 ]],
     },
@@ -342,16 +342,16 @@ return verify(signature, payload)
       code = [[
 local crypto = require("santoku.monocypher")
 local function totp (key, now, period, digits)
-  local counter = math.floor(now / period)
+  local counter = num.floor(now / period)
   local msg = {}
   for i = 8, 1, -1 do
-    msg[i] = string.char(counter % 256)
-    counter = math.floor(counter / 256)
+    msg[i] = str.char(counter % 256)
+    counter = num.floor(counter / 256)
   end
   local hex = crypto.hmac_sha1(key, table.concat(msg))
   local offset = tonumber(hex:sub(40, 40), 16)
   local v = tonumber(hex:sub(offset * 2 + 1, offset * 2 + 8), 16) % 0x80000000
-  local code = tostring(math.floor(v % 10 ^ digits))
+  local code = tostring(num.floor(v % 10 ^ digits))
   while #code < digits do code = "0" .. code end
   return code
 end
@@ -426,12 +426,12 @@ return key2:export()
 local crypto = require("santoku.monocypher")
 local id = crypto.derive_identity("secret one", 1024, 1)
 local key = crypto.derive_key("secret one", id)
-local wrap = string.rep(string.char(0x42), 32)
+local wrap = str.rep(str.char(0x42), 32)
 local wrapped = crypto.wrap_key(key, wrap)
 print("wrapped:", wrapped)
 local unwrapped = crypto.unwrap_key(wrapped, wrap)
 print("roundtrip:", unwrapped:bytes() == key:bytes())
-print("wrong wrap:", crypto.unwrap_key(wrapped, string.rep(string.char(0x43), 32)))
+print("wrong wrap:", crypto.unwrap_key(wrapped, str.rep(str.char(0x43), 32)))
 print("bad size:", crypto.wrap_key(key, "tooshort"))
 print("fresh nonce:", crypto.wrap_key(key, wrap) ~= wrapped)
 return unwrapped:bytes() == key:bytes()
@@ -447,6 +447,7 @@ return unwrapped:bytes() == key:bytes()
       }),
       code = [[
 local crypto = require("santoku.monocypher")
+local arr = require("santoku.array")
 local secret = "canyon ethics sushi hazelnut opera trend"
 local id = crypto.derive_identity(secret, 1024, 1)
 local key = crypto.derive_key(secret, id)
@@ -457,7 +458,7 @@ for rid, text in pairs(rows) do
   sealed[rid] = dbkey:encrypt(text, rid)
   ids[#ids + 1] = rid
 end
-table.sort(ids)
+arr.sort(ids)
 local manifest = table.concat(ids, ";")
 local sig = id:sign_request(manifest)
 print("manifest ok:", crypto.verify_request(id:public_key(), sig, id:sub(), manifest))

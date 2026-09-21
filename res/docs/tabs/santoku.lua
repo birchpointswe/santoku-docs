@@ -201,7 +201,7 @@ print(str.interp("Hello %who, %adj to meet you!", {
   adj = "nice",
 }))
 print(str.interp("%1 %3 %2", { "a", "b", "c" }))
-print(str.interp("pi is %.3f#(pi)", { pi = math.pi }))
+print(str.interp("pi is %.3f#(pi)", { pi = num.pi }))
 print(str.interp("%(num_to_display)", { num_to_display = 7 }))
 local t = str.parse("2023-10-26 09:10:26",
   "(%d+)#(year)-(%d+)#(month)-(%d+)#(day) (%d+)#(hour):(%d+)#(min):(%d+)#(sec)")
@@ -366,11 +366,11 @@ return fun.const(42)()
 local num = require("santoku.num")
 print("round:", num.round(2.5), num.round(2.4))
 print("round to 0.25 steps:", num.round(0.30, 0.25))
-print("trunc to 3 decimals:", num.trunc(math.pi, 3))
+print("trunc to 3 decimals:", num.trunc(num.pi, 3))
 local avg = num.mavg(0.5)
 print("mavg:", avg(10), avg(20), avg(30))
 print("math included:", num.floor(num.pi), num.max(3, 7))
-return num.round(math.pi * 100) / 100
+return num.round(num.pi * 100) / 100
 ]],
     },
 

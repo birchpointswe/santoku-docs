@@ -240,6 +240,7 @@ return fs.exists("deep")
       }),
       code = [[
 local fs = require("santoku.fs")
+local arr = require("santoku.array")
 fs.mkdirp("proj/src/util")
 fs.writefile("proj/readme.md", "# proj")
 fs.writefile("proj/src/main.lua", "return true")
@@ -248,7 +249,7 @@ local all = {}
 for fp in fs.files("proj", true) do
   all[#all + 1] = fp
 end
-table.sort(all)
+arr.sort(all)
 print("recursive:", table.concat(all, " "))
 local top = {}
 for fp in fs.files("proj") do
@@ -259,7 +260,7 @@ local ds = {}
 for d in fs.dirs("proj", true) do
   ds[#ds + 1] = d
 end
-table.sort(ds)
+arr.sort(ds)
 print("dirs:", table.concat(ds, " "))
 for i = 1, #all do
   fs.rm(all[i])
@@ -278,6 +279,7 @@ return #all
       }),
       code = [[
 local fs = require("santoku.fs")
+local arr = require("santoku.array")
 fs.mkdirp("site/src")
 fs.mkdirp("site/build")
 fs.writefile("site/src/main.lua", "return true")
@@ -291,7 +293,7 @@ for name, kind in fs.walk("site", function (dir)
 end) do
   seen[#seen + 1] = name .. " (" .. kind .. ")"
 end
-table.sort(seen)
+arr.sort(seen)
 print("pruned:", table.concat(seen, " "))
 local kept = {}
 for name, kind in fs.walk("site", function ()
@@ -299,7 +301,7 @@ for name, kind in fs.walk("site", function ()
 end) do
   kept[#kept + 1] = name .. " (" .. kind .. ")"
 end
-table.sort(kept)
+arr.sort(kept)
 print("keep:", table.concat(kept, " "))
 fs.rm("site/src/main.lua")
 fs.rm("site/build/cache.bin")
@@ -318,6 +320,7 @@ return #seen
       }),
       code = [[
 local fs = require("santoku.fs")
+local arr = require("santoku.array")
 fs.mkdirp("box")
 fs.writefile("box/a.txt", "a")
 fs.writefile("box/b.txt", "b")
@@ -327,7 +330,7 @@ for name, kind in fs.dir("box") do
     ents[#ents + 1] = name .. " (" .. kind .. ")"
   end
 end
-table.sort(ents)
+arr.sort(ents)
 print(table.concat(ents, ", "))
 fs.rm("box/a.txt")
 fs.rm("box/b.txt")
@@ -466,6 +469,7 @@ return a ~= nil
       }),
       code = [[
 local fs = require("santoku.fs")
+local arr = require("santoku.array")
 local function copy (src, dest)
   fs.mkdirp(fs.dirname(dest))
   fs.writefile(dest, fs.readfile(src))
@@ -480,7 +484,7 @@ local out = {}
 for fp in fs.files("dist", true) do
   out[#out + 1] = fp
 end
-table.sort(out)
+arr.sort(out)
 print("mirrored:", table.concat(out, " "))
 local body = fs.readfile("dist/src/app.lua")
 local function nuke (dir)

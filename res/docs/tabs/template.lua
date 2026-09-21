@@ -197,13 +197,14 @@ return template.render("<% return renderfile('test/res/template/index.html') %>"
       desc = "serialize_deps emits a rule from a dep set the caller recorded; deserialize_deps parses one back.",
       code = [[
 local template = require("santoku.template")
+local arr = require("santoku.array")
 print(template.serialize_deps("index.html.tk", "index.html", { ["res/header.html"] = true }))
 local deps = template.deserialize_deps("index.html.tk: res/header.html res/footer.html")
 local names = {}
 for name in pairs(deps) do
   names[#names + 1] = name
 end
-table.sort(names)
+arr.sort(names)
 return table.concat(names, ", ")
 ]],
     },
