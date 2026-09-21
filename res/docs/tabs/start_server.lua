@@ -102,6 +102,86 @@ local db = require("my_api.db.loaded")
     },
 
     {
+      title = "Adding an endpoint: the descriptor and the template",
+      desc = table.concat({
+        "A handler reaches nginx through two halves that have to agree. The ",
+        "descriptor's nginx.modules lists module names, and the engine resolves each ",
+        "one to the absolute path of its installed file and hands the template a ",
+        "modules table keyed by the same name. So the template never writes a path: ",
+        "it looks the name up. Adding an endpoint means adding the module to ",
+        "nginx.modules and referencing it from a location block; miss the first half ",
+        "and the lookup yields nothing, miss the second and the module installs and ",
+        "is never routed to. init and init_worker are in that same list, which is ",
+        "why they are reachable by init_by_lua_file and init_worker_by_lua_file ",
+        "rather than by a path you maintain.",
+      }),
+      runnable = false,
+      lang = "lua",
+      code = [[
+-- make.lua, the descriptor half
+nginx = {
+  domain = env.var("DOMAIN", "localhost"),
+  port = "8080",
+  workers = env.var("WORKERS", "auto"),
+  modules = {
+    "my_api.web.init",
+    "my_api.web.init_worker",
+    "my_api.web.items",
+  },
+},
+
+-- server/nginx.tk.conf, the template half
+init_by_lua_file        <% return modules["my_api.web.init"] %>;
+init_worker_by_lua_file <% return modules["my_api.web.init_worker"] %>;
+
+server {
+  listen <% return n.port %>;
+  server_name <% return n.domain %>;
+
+  location = /items {
+    limit_except GET POST { deny all; }
+    content_by_lua_file <% return modules["my_api.web.items"] %>;
+  }
+}
+]],
+    },
+
+    {
+      title = "The pragma set, and why it is per worker",
+      desc = table.concat({
+        "The scaffolded db module opens the connection and applies four pragmas ",
+        "before anything else touches it. WAL is what lets readers run while a ",
+        "writer holds the database, synchronous NORMAL is the setting WAL is ",
+        "designed around, busy_timeout covers the boot window where every worker ",
+        "opens a write transaction at once, and foreign_keys is off by default in ",
+        "SQLite and has to be asked for on every connection. None of them persist ",
+        "in the file, so all four are reapplied per connection, which under this ",
+        "pattern means per worker. That is the part worth holding onto when you add ",
+        "pragmas of your own. Anything sized in bytes is paid once per worker, so ",
+        "the real cost is the value multiplied by worker_processes, and ",
+        "worker_processes defaults to auto, which resolves to the core count of ",
+        "whatever machine you deploy on. cache_size is the one that bites: the ",
+        "scaffold leaves it at SQLite's default, but if you raise it, multiply ",
+        "before you decide the number is affordable. On a memory-limited deploy, ",
+        "pin worker_processes to a number you chose rather than leaving it at auto.",
+      }),
+      runnable = false,
+      lang = "lua",
+      code = [[
+-- server/lib/my_api/db.tk.lua, applied on every connection this module opens
+db.exec("pragma busy_timeout = 30000")
+db.exec("pragma journal_mode = WAL")
+db.exec("pragma synchronous = NORMAL")
+db.exec("pragma foreign_keys = on")
+
+-- sizing anything per-connection, the arithmetic that matters:
+--   total = value x worker_processes
+-- so a 64 MiB cache_size across 16 workers reserves 1 GiB of page cache
+-- before nginx, LuaJIT or SQLite's own structures are counted
+]],
+    },
+
+    {
       title = "How you know it worked",
       desc = table.concat({
         "Run these against the finished project and compare output. The build ",
