@@ -476,12 +476,63 @@ return #hits
     },
 
     {
+      title = "fts: full-text search over your own tokens",
+      desc = table.concat({
+        "santoku.sqlite.fts is the search path to reach for. It puts SQLite's FTS5 index ",
+        "underneath, and keeps santoku.learn.tokenizer in front of it, so regions, ",
+        "terminals, tags and focus all still decide what a token is. FTS5's own tokenizers ",
+        "never see your text: you hand fts a csr of token ids exactly as you would hand it ",
+        "to search, it encodes each id as a term and repeats it as many times as the csr ",
+        "says, and FTS5 indexes that. Ranking is FTS5's bm25, which reads the repeats as ",
+        "term frequency and applies document-length normalisation, so no weighting step is ",
+        "needed on your side. Query tokens are OR-ed, matching the union semantics of the ",
+        "csr index rather than FTS5's usual bareword AND. Ids may be text; fts keeps a ",
+        "mapping table because FTS5 itself keys on an integer rowid. Prefer word tokens ",
+        "over character n-grams here, and prefer this over the cosine index below unless ",
+        "you specifically need partitions.",
+      }),
+      code = [[
+local sqlite = require("santoku.sqlite.db")
+local sql = require("santoku.sqlite")
+local fts = require("santoku.sqlite.fts")
+local ivec = require("santoku.ivec")
+local fvec = require("santoku.fvec")
+local csr = require("santoku.csr")
+local db = sql(sqlite.open_memory())
+local idx = fts.create(db, { name = "docs" })
+idx.add({ "a", "b", "c" }, csr.create({
+  offsets = ivec.create({ 0, 3, 6, 8 }),
+  neighbors = ivec.create({ 1, 2, 3, 2, 3, 4, 5, 6 }),
+  values = fvec.create({ 1, 1, 1, 1, 1, 1, 1, 1 }),
+}))
+local q = csr.create({
+  offsets = ivec.create({ 0, 2 }),
+  neighbors = ivec.create({ 2, 3 }),
+  values = fvec.create({ 1, 1 }),
+})
+local hits = idx.search(q, 10)
+for i = 1, #hits do
+  print(hits[i].id, hits[i].score)
+end
+idx.remove({ "a" })
+print("after remove:", #idx.search(q, 10))
+return #hits
+]],
+    },
+
+    {
       title = "search: the packaged TF cosine index",
       desc = table.concat({
         "santoku.sqlite.search wraps that SQL behind create, add, search, remove, and clear. Documents ",
         "are csr rows (token ids as columns, weights as values); re-adding an id reindexes it, and a csr ",
         "without values derives tf from token occurrence counts. Create one with ",
-        "search.create(db, { name = \"search\" }).",
+        "search.create(db, { name = \"search\" }). It takes the same csr input as fts above, so the two ",
+        "are interchangeable at the call site. Reach for this one when you need partitions, which fts ",
+        "does not have, or when you want the scoring to be an ordinary SQL statement you can read and ",
+        "modify. Weight the document csr yourself before adding it: csr:idf() or csr:bm25() from ",
+        "santoku.matrix are what make this index rank well, and neither is applied for you. Pass ",
+        "norm = false when the weights already carry length normalisation, as bm25's do, since dividing ",
+        "by a cosine norm on top of that scores the wrong thing.",
       }),
       code = [[
 local sqlite = require("santoku.sqlite.db")
