@@ -31,6 +31,7 @@ return {
       code = [[
 local make = require("santoku.make")
 local fs = require("santoku.fs")
+local arr = require("santoku.array")
 local m = make()
 m.target({ "out/header.txt" }, {}, function (ts)
   fs.mkdirp(fs.dirname(ts[1]))
@@ -47,7 +48,7 @@ m.target(
     for i = 1, #ds do
       parts[i] = fs.readfile(ds[i])
     end
-    fs.writefile(ts[1], table.concat(parts))
+    fs.writefile(ts[1], arr.concat(parts))
   end)
 m.target({ "all" }, { "out/main.txt" }, true)
 m.build({ "all" }, 3)
@@ -67,9 +68,10 @@ return fs.readfile("out/main.txt")
       code = [[
 local make = require("santoku.make")
 local fs = require("santoku.fs")
+local str = require("santoku.string")
 local m = make()
 m.target({ "out/upper.txt" }, { "out/lower.txt" }, function (ts, ds)
-  fs.writefile(ts[1], string.upper(fs.readfile(ds[1])))
+  fs.writefile(ts[1], str.upper(fs.readfile(ds[1])))
 end)
 fs.mkdirp("out")
 fs.writefile("out/lower.txt", "hello\n")
@@ -790,7 +792,7 @@ return {
       dependencies = {
         "lua == 5.1",
         "santoku-resty >= 2.0.0, < 3.0.0",
-        "santoku-sqlite >= 4.0.2, < 5.0.0",
+        "santoku-sqlite >= 4.0.6, < 5.0.0",
       },
     },
     client = {

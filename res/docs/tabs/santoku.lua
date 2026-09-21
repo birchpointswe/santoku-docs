@@ -37,6 +37,7 @@ return arr.sum(t)
       }),
       code = [[
 local arr = require("santoku.array")
+local str = require("santoku.string")
 local words = { "pear", "fig", "apple", "banana" }
 local by_len = arr.sorted(words, function (a, b)
   return #a < #b
@@ -45,7 +46,7 @@ print("shortest first:", arr.concat(by_len, " "))
 print("original intact:", arr.concat(words, " "))
 local dedup = arr.sort({ 3, 1, 2, 3, 1 }, { unique = true })
 print("sorted unique:", arr.concat(dedup, " "))
-local caps = arr.mapped(words, string.upper)
+local caps = arr.mapped(words, str.upper)
 print("mapped copy:", arr.concat(caps, " "))
 print("middle:", arr.concat(arr.slice(words, 2, 3), " "))
 print("last two:", arr.concat(arr.takelast(words, 2), " "))
@@ -153,7 +154,8 @@ return arr.concat(b, " ")
       }),
       code = [[
 local arr = require("santoku.array")
-local words = arr.imap(string.upper, ("lift map over any iterator"):gmatch("%a+"))
+local str = require("santoku.string")
+local words = arr.imap(str.upper, ("lift map over any iterator"):gmatch("%a+"))
 print("mapped:", arr.concat(words, " "))
 local long = arr.ifilter(function (w)
   return #w > 3
@@ -264,9 +266,10 @@ return str.to_hex("\1\2\255")
       }),
       code = [[
 local str = require("santoku.string")
+local arr = require("santoku.array")
 local u = str.parse_url("https://example.com:8080/docs/intro?page=2&dark=true#usage")
 print("scheme:", u.scheme, "host:", u.host, "port:", u.port)
-print("path:", table.concat(u.path, "/"))
+print("path:", arr.concat(u.path, "/"))
 print("params:", u.params.page, u.params.dark)
 print("fragment:", u.fragment)
 u.params.page = u.params.page + 1
@@ -384,6 +387,7 @@ return num.round(num.pi * 100) / 100
       }),
       code = [[
 local fracidx = require("santoku.fracidx")
+local arr = require("santoku.array")
 local first = fracidx.between(nil, nil)
 local second = fracidx.between(first, nil)
 local middle = fracidx.between(first, second)
@@ -392,7 +396,7 @@ print("second:", second)
 print("middle:", middle)
 print("ordered:", first < middle and middle < second)
 local batch = fracidx.between_n(first, second, 3)
-print("batch of 3:", table.concat(batch, " "))
+print("batch of 3:", arr.concat(batch, " "))
 print("bad key rejected:", pcall(fracidx.validate, "0oops"))
 return fracidx.between(middle, second)
 ]],

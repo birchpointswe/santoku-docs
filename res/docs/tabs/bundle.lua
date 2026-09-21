@@ -81,7 +81,7 @@ return require("demo.app")
         "skips comments and strings.",
       }),
       code = [[
-local src = table.concat({
+local src = arr.concat({
   "local arr = require(\"santoku.array\")",
   "local str = require \"santoku.string\"",
   "local required_elsewhere = 1",
@@ -93,7 +93,7 @@ local naive = {}
 for mod in src:gmatch("require%s*%(?%s*[\"']([%w%.]+)[\"']") do
   naive[#naive + 1] = mod
 end
-print("naive pattern finds: " .. table.concat(naive, ", "))
+print("naive pattern finds: " .. arr.concat(naive, ", "))
 print("the real grammar finds only: santoku.array, santoku.string")
 print("it skips the comment and the string body, and required_elsewhere")
 print("never matches because the keyword must end at a non-identifier")
@@ -116,8 +116,9 @@ return naive
       code = [[
 local bundle = require("santoku.bundle")
 local fs = require("santoku.fs")
+local arr = require("santoku.array")
 fs.mkdirp("bin")
-fs.writefile("bin/main.lua", table.concat({
+fs.writefile("bin/main.lua", arr.concat({
   "local name = \"myapp.backend.\" .. (os.getenv(\"BACKEND\") or \"memory\")",
   "local backend = require(name)",
   "if false then require(\"myapp.debugview\") end",
@@ -145,8 +146,9 @@ return fs.exists("build/main")
       code = [[
 local bundle = require("santoku.bundle")
 local fs = require("santoku.fs")
+local arr = require("santoku.array")
 fs.mkdirp("bin")
-fs.writefile("bin/tool.lua", table.concat({
+fs.writefile("bin/tool.lua", arr.concat({
   "local dbg = require(\"debug\")",
   "print(dbg.traceback())",
 }, "\n"))
@@ -255,6 +257,7 @@ return cmd
       }),
       code = [[
 local str = require("santoku.string")
+local arr = require("santoku.array")
 local chunk = "print('hello from inside the executable')"
 local b64 = str.to_base64(chunk)
 print(b64)
@@ -263,7 +266,7 @@ local bytes = {}
 for i = 1, 12 do
   bytes[#bytes + 1] = string.format("0x%02x", string.byte(chunk, i))
 end
-print(table.concat(bytes, ",") .. ", ...")
+print(arr.concat(bytes, ",") .. ", ...")
 print("binary = true writes that array shape into the generated C")
 return b64
 ]],
@@ -417,12 +420,13 @@ return "the program rendering this sentence"
       code = [[
 local wasm = require("santoku.make.wasm")
 local make = require("santoku.make")
+local arr = require("santoku.array")
 local m = make()
 local lua_dir, lua_ok = wasm.setup_lua(m.target, "build/client/build/default-wasm/build")
 m.build({ lua_ok }, 1)
 print("built with MYCFLAGS -w -flto -Oz and MYLDFLAGS including")
 print("-sSINGLE_FILE -lnodefs.js -lnoderawfs.js")
-print(table.concat(wasm.get_bundle_flags(lua_dir, "build", {}, {}), " "))
+print(arr.concat(wasm.get_bundle_flags(lua_dir, "build", {}, {}), " "))
 print("get_bundle_flags is the standard emcc flag set the project layers")
 print("hand to bundle, sized -Oz for shipping")
 return lua_dir

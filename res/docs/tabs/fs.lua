@@ -49,6 +49,7 @@ return fs.join("a", "b", "c")
       }),
       code = [[
 local fs = require("santoku.fs")
+local arr = require("santoku.array")
 print("extension:", fs.extension("release.tar.gz"))
 print("extensions:", fs.extensions("release.tar.gz"))
 print("stripextension:", fs.stripextension("release.tar.gz"))
@@ -58,7 +59,7 @@ local exts = {}
 for e in fs.splitexts("/this/test.tar.gz", true) do
   exts[#exts + 1] = e
 end
-print("splitexts:", table.concat(exts, " "))
+print("splitexts:", arr.concat(exts, " "))
 return fs.stripextensions("release.tar.gz")
 ]],
     },
@@ -72,16 +73,17 @@ return fs.stripextensions("release.tar.gz")
       }),
       code = [[
 local fs = require("santoku.fs")
+local arr = require("santoku.array")
 local plain = {}
 for p in fs.splitparts("/deploy//web/assets/") do
   plain[#plain + 1] = p
 end
-print("parts:", table.concat(plain, " "))
+print("parts:", arr.concat(plain, " "))
 local right = {}
 for p in fs.splitparts("/deploy//web/assets/", "right") do
   right[#right + 1] = p
 end
-print("right:", table.concat(right, " "))
+print("right:", arr.concat(right, " "))
 print("strip 2:", fs.stripparts("/home/user/a/b/c.txt", 2))
 print("strip 4:", fs.stripparts("/home/user/a/b/c.txt", 4))
 print("strip 0:", fs.stripparts("/home/user/a/b/c.txt", 0))
@@ -250,18 +252,18 @@ for fp in fs.files("proj", true) do
   all[#all + 1] = fp
 end
 arr.sort(all)
-print("recursive:", table.concat(all, " "))
+print("recursive:", arr.concat(all, " "))
 local top = {}
 for fp in fs.files("proj") do
   top[#top + 1] = fp
 end
-print("top only:", table.concat(top, " "))
+print("top only:", arr.concat(top, " "))
 local ds = {}
 for d in fs.dirs("proj", true) do
   ds[#ds + 1] = d
 end
 arr.sort(ds)
-print("dirs:", table.concat(ds, " "))
+print("dirs:", arr.concat(ds, " "))
 for i = 1, #all do
   fs.rm(all[i])
 end
@@ -294,7 +296,7 @@ end) do
   seen[#seen + 1] = name .. " (" .. kind .. ")"
 end
 arr.sort(seen)
-print("pruned:", table.concat(seen, " "))
+print("pruned:", arr.concat(seen, " "))
 local kept = {}
 for name, kind in fs.walk("site", function ()
   return "keep"
@@ -302,7 +304,7 @@ end) do
   kept[#kept + 1] = name .. " (" .. kind .. ")"
 end
 arr.sort(kept)
-print("keep:", table.concat(kept, " "))
+print("keep:", arr.concat(kept, " "))
 fs.rm("site/src/main.lua")
 fs.rm("site/build/cache.bin")
 fs.rm("site/doc.md")
@@ -331,7 +333,7 @@ for name, kind in fs.dir("box") do
   end
 end
 arr.sort(ents)
-print(table.concat(ents, ", "))
+print(arr.concat(ents, ", "))
 fs.rm("box/a.txt")
 fs.rm("box/b.txt")
 fs.rmdirs("box")
@@ -372,12 +374,13 @@ return #blocks
       code = [[
 local fs = require("santoku.fs")
 local err = require("santoku.error")
+local arr = require("santoku.array")
 fs.writefile("log.txt", "alpha\nbeta\ngamma\n")
 local lines = {}
 for chunk, s, e in fs.chunks("log.txt", "\n", 8, true) do
   lines[#lines + 1] = chunk:sub(s, e)
 end
-print("lines:", table.concat(lines, ", "))
+print("lines:", arr.concat(lines, ", "))
 local ok, msg = err.pcall(function ()
   for chunk in fs.chunks("log.txt", "\n", 3) do
     local _ = chunk
@@ -485,7 +488,7 @@ for fp in fs.files("dist", true) do
   out[#out + 1] = fp
 end
 arr.sort(out)
-print("mirrored:", table.concat(out, " "))
+print("mirrored:", arr.concat(out, " "))
 local body = fs.readfile("dist/src/app.lua")
 local function nuke (dir)
   for fp in fs.files(dir, true) do

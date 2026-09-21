@@ -246,6 +246,7 @@ runner({ "test/spec", "client/test/spec" }, {
         "anchor picks a subtree, and a suffix anchor keeps only Lua sources.",
       }),
       code = [[
+local arr = require("santoku.array")
 local candidates = {
   "test/spec/santoku/array.lua",
   "test/spec/santoku/fracidx.lua",
@@ -260,7 +261,7 @@ local function selected (match)
       out[#out + 1] = fp
     end
   end
-  return table.concat(out, "  ")
+  return arr.concat(out, "  ")
 end
 print("fracidx:", selected("fracidx"))
 print("sqlite subtree:", selected("^test/spec/santoku/sqlite"))

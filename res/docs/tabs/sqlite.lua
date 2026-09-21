@@ -5,7 +5,7 @@ return {
     "(santoku.sqlite.db) over the SQLite C API, and a Lua wrapper (santoku.sqlite) ",
     "that turns prepared statements into reusable query closures with transaction ",
     "control. On top sit a carray virtual table that binds santoku-matrix vectors as ",
-    "zero-copy SQL inputs, a TF/cosine search index (santoku.sqlite.search), and an ",
+    "zero-copy SQL inputs, a full-text index over your own tokens (santoku.sqlite.fts), and an ",
     "encrypting VFS that seals every byte on disk. The same C core compiles ",
     "unchanged to WebAssembly, where it additionally registers an OPFS-backed VFS ",
     "(opfs-coop): synchronous access handles held in a dedicated worker, one ",
@@ -169,6 +169,7 @@ return "done"
       code = [[
 local sqlite = require("santoku.sqlite.db")
 local sql = require("santoku.sqlite")
+local arr = require("santoku.array")
 local db = sql(sqlite.open_memory())
 db.exec("create table cities (name text, state text)")
 local add = db.runner("insert into cities (name, state) values (?, ?)")
@@ -178,7 +179,7 @@ add("Albany", "New York")
 local rows = db.all("select name, state from cities order by name", true)()
 print("rows:", #rows, "first:", rows[1].name)
 local names = db.all("select name from cities where state = ? order by name")
-print("florida:", table.concat(names("Florida"), ", "))
+print("florida:", arr.concat(names("Florida"), ", "))
 return #rows
 ]],
     },
@@ -370,6 +371,7 @@ local sqlite = require("santoku.sqlite.db")
 local sql = require("santoku.sqlite")
 local ivec = require("santoku.ivec")
 local fvec = require("santoku.fvec")
+local arr = require("santoku.array")
 local db = sql(sqlite.open_memory())
 db.exec("create table items (id integer primary key, label text)")
 local add = db.runner("insert into items (id, label) values (?, ?)")
@@ -384,7 +386,7 @@ for i = 1, #labels do
   print("hit:", labels[i])
 end
 local above = db.all("select value from carray(?) where value > ?")
-print("filtered:", table.concat(above(fvec.create({ 0.5, 2.5, 1.5 }), 1.0), ", "))
+print("filtered:", arr.concat(above(fvec.create({ 0.5, 2.5, 1.5 }), 1.0), ", "))
 return #labels
 ]],
     },
@@ -426,7 +428,7 @@ return "done"
       title = "cosine search from scratch with carray joins",
       desc = table.concat({
         "The TF/cosine index is plain SQL over carray inputs; this is the statement shape ",
-        "santoku.sqlite.search prepares, inlined so it runs here. Token ids and weights stream in as ",
+        "a cosine index prepares, inlined so it runs here. Token ids and weights stream in as ",
         "vecs, norms are precomputed per document, and one grouped join scores and ranks the corpus ",
         "(the build enables SQLite's math functions, so sqrt is available).",
       }),
@@ -516,95 +518,6 @@ for i = 1, #hits do
 end
 idx.remove({ "a" })
 print("after remove:", #idx.search(q, 10))
-return #hits
-]],
-    },
-
-    {
-      title = "search: the packaged TF cosine index",
-      desc = table.concat({
-        "santoku.sqlite.search wraps that SQL behind create, add, search, remove, and clear. Documents ",
-        "are csr rows (token ids as columns, weights as values); re-adding an id reindexes it, and a csr ",
-        "without values derives tf from token occurrence counts. Create one with ",
-        "search.create(db, { name = \"search\" }). It takes the same csr input as fts above, so the two ",
-        "are interchangeable at the call site. Reach for this one when you need partitions, which fts ",
-        "does not have, or when you want the scoring to be an ordinary SQL statement you can read and ",
-        "modify. Weight the document csr yourself before adding it: csr:idf() or csr:bm25() from ",
-        "santoku.matrix are what make this index rank well, and neither is applied for you. Pass ",
-        "norm = false when the weights already carry length normalisation, as bm25's do, since dividing ",
-        "by a cosine norm on top of that scores the wrong thing.",
-      }),
-      code = [[
-local sqlite = require("santoku.sqlite.db")
-local sql = require("santoku.sqlite")
-local search = require("santoku.sqlite.search")
-local ivec = require("santoku.ivec")
-local fvec = require("santoku.fvec")
-local csr = require("santoku.csr")
-local db = sql(sqlite.open_memory())
-local idx = search.create(db, { name = "docs" })
-idx.add({ "a", "b", "c" }, csr.create({
-  offsets = ivec.create({ 0, 3, 6, 8 }),
-  neighbors = ivec.create({ 1, 2, 3, 2, 3, 4, 5, 6 }),
-  values = fvec.create({ 1, 1, 1, 1, 1, 1, 1, 1 }),
-}))
-local q = csr.create({
-  offsets = ivec.create({ 0, 2 }),
-  neighbors = ivec.create({ 2, 3 }),
-  values = fvec.create({ 1, 1 }),
-})
-local hits = idx.search(q, 10)
-for i = 1, #hits do
-  print(hits[i].id, hits[i].score)
-end
-idx.remove({ "a" })
-print("after remove:", #idx.search(q, 10))
-idx.add({ "a" }, csr.create({
-  offsets = ivec.create({ 0, 2 }),
-  neighbors = ivec.create({ 7, 8 }),
-  values = fvec.create({ 1, 1 }),
-}))
-print("reindexed elsewhere:", #idx.search(q, 10))
-return #hits
-]],
-    },
-
-    {
-      title = "search: partitions and presence-only ranking",
-      desc = table.concat({
-        "partition = true (or a custom column name) namespaces every call by a leading key with full ",
-        "isolation, which is how multi-tenant indexes share one table. weighted = false skips norms and ",
-        "ranks by raw match count, and schema places the index tables in an attached database.",
-      }),
-      code = [[
-local sqlite = require("santoku.sqlite.db")
-local sql = require("santoku.sqlite")
-local search = require("santoku.sqlite.search")
-local ivec = require("santoku.ivec")
-local fvec = require("santoku.fvec")
-local csr = require("santoku.csr")
-local db = sql(sqlite.open_memory())
-local function doc (tokens, weights)
-  return csr.create({
-    offsets = ivec.create({ 0, #tokens }),
-    neighbors = ivec.create(tokens),
-    values = weights and fvec.create(weights) or nil,
-  })
-end
-local idx = search.create(db, { name = "p", partition = true })
-idx.add("u1", { "doc1" }, doc({ 1, 2 }, { 1, 1 }))
-idx.add("u2", { "doc2" }, doc({ 1, 2 }, { 1, 1 }))
-print("u1 sees:", idx.search("u1", doc({ 1, 2 }, { 1, 1 }), 10)[1].id)
-idx.clear("u1")
-print("u1 cleared:", #idx.search("u1", doc({ 1, 2 }, { 1, 1 }), 10))
-print("u2 intact:", #idx.search("u2", doc({ 1, 2 }, { 1, 1 }), 10))
-local pres = search.create(db, { name = "pres", weighted = false })
-pres.add({ "a", "b" }, csr.create({
-  offsets = ivec.create({ 0, 3, 5 }),
-  neighbors = ivec.create({ 1, 2, 3, 1, 4 }),
-}))
-local hits = pres.search(doc({ 1, 2, 3 }), 10)
-print("by match count:", hits[1].id, hits[1].score)
 return #hits
 ]],
     },

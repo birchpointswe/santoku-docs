@@ -488,6 +488,7 @@ return used[1]
       runnable = false,
       code = [[
 local http = require("santoku.http")
+local arr = require("santoku.array")
 local log = {}
 local client = http({
   fetch = function (url, opts)
@@ -503,7 +504,7 @@ client.on("response", function (ok, resp)
 end)
 client.get("http://example/a")
 client.get("http://example/b")
-print(table.concat(log, "\n"))
+print(arr.concat(log, "\n"))
 return #log
 ]],
     },

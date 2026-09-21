@@ -46,8 +46,9 @@ return tostring(via_render == via_compile)
       desc = "Blocks resolve names from env first, then fall back to the global table you pass (often _G), wired onto the env's __index chain.",
       code = [[
 local template = require("santoku.template")
+local arr = require("santoku.array")
 print(template.render("<% return string.upper(word) %>", { word = "loud" }, _G))
-return template.render("<% return table.concat(names, ', ') %>", { names = { "ada", "grace" } }, _G)
+return template.render("<% return arr.concat(names, ', ') %>", { names = { "ada", "grace" } }, _G)
 ]],
     },
 
@@ -115,7 +116,8 @@ return t({ a = false, b = true })
       desc = "Gating filters output only: every block runs regardless of the stack, so side effects made inside a false gate are visible afterward.",
       code = [[
 local template = require("santoku.template")
-local t = template.compile(table.concat({
+local arr = require("santoku.array")
+local t = template.compile(arr.concat({
   "<% push(false) %><% ran = true %>",
   "<% return 'hidden' %><% pop() %>",
   "<% return ran and 'the hidden block ran' or 'it did not run' %>",
@@ -205,7 +207,7 @@ for name in pairs(deps) do
   names[#names + 1] = name
 end
 arr.sort(names)
-return table.concat(names, ", ")
+return arr.concat(names, ", ")
 ]],
     },
 
@@ -250,6 +252,7 @@ return {
       desc = "A server/nginx.tk.conf can be one block: it resolves content-hashed filenames with the build's hashed helper, assembles env directives from config, then hands a mustache conf source off to santoku.mustache against a context table. The block's readfile calls are recorded as dependencies, so the conf rebuilds when that source changes.",
       runnable = false,
       code = [[
+local arr = require("santoku.array")
 <%
   local ctx = nginx
   ctx.index_hashed = hashed("index.html")
@@ -258,7 +261,7 @@ return {
   for _, k in ipairs((server or {}).nginx_env_vars or {}) do
     env_lines[#env_lines + 1] = "env " .. k .. ";"
   end
-  ctx.nginx_env_lines = table.concat(env_lines, "\n")
+  ctx.nginx_env_lines = arr.concat(env_lines, "\n")
   return require("santoku.mustache")(readfile("res/nginx.conf"))(ctx)
 %>
 ]],

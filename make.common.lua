@@ -96,7 +96,7 @@ return {
         "santoku-fs >= 2.0.0, < 3.0.0",
         "santoku-lpeg >= 2.0.0, < 3.0.0",
         "santoku-matrix >= 2.0.1, < 3.0.0",
-        "santoku-sqlite >= 4.0.2, < 5.0.0",
+        "santoku-sqlite >= 4.0.6, < 5.0.0",
         "santoku-sqlite-migrate >= 2.0.0, < 3.0.0",
         "santoku-learn >= 2.0.1, < 3.0.0",
         "santoku-template >= 2.0.0, < 3.0.0",
@@ -143,7 +143,7 @@ return {
           "santoku-fs >= 2.1.3, < 3.0.0",
           "santoku-web >= 2.2.3, < 3.0.0",
           "santoku-http >= 2.0.0, < 3.0.0",
-          "santoku-sqlite >= 4.0.2, < 5.0.0",
+          "santoku-sqlite >= 4.0.6, < 5.0.0",
         }
       }
     },

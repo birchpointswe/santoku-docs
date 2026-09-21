@@ -81,6 +81,7 @@ return tok:n_tokens()
 local tokenizer = require("santoku.learn.tokenizer")
 local re = require("santoku.re")
 local spans = require("santoku.spans")
+local arr = require("santoku.array")
 local texts = { "The quick brown fox", "jumps over 42 dogs" }
 local prog = re.prog("[A-Za-z0-9]+")
 local off, s, e = tokenizer.extract({ n = 2, texts = texts, pattern = prog })
@@ -89,7 +90,7 @@ for d = 1, 2 do
   for j = off:get(d - 1), off:get(d) - 1 do
     words[#words + 1] = texts[d]:sub(s:get(j) + 1, e:get(j))
   end
-  print("doc " .. d .. ":", table.concat(words, "|"))
+  print("doc " .. d .. ":", arr.concat(words, "|"))
 end
 local T = spans.create({ offsets = off, s = s, e = e })
 return T:col("s"):size()

@@ -99,6 +99,7 @@ print("symbolizer:", symbolizer)
       code = [[
 local sys = require("santoku.system")
 local fs = require("santoku.fs")
+local arr = require("santoku.array")
 local tmp = fs.tmpname() .. ".js"
 fs.writefile(tmp, "function add (a, b) { return a + b; }")
 local parts = {}
@@ -106,7 +107,7 @@ for chunk in sys.sh({ "esbuild", "--minify", tmp }) do
   parts[#parts + 1] = chunk
 end
 os.remove(tmp)
-print(table.concat(parts, "\n"))
+print(arr.concat(parts, "\n"))
 ]],
     },
 
@@ -157,6 +158,7 @@ end
       runnable = false,
       code = [[
 local sys = require("santoku.system")
+local arr = require("santoku.array")
 local reason, rc, diag = nil, nil, {}
 for what, _, r, c in sys.pread({
   "sh", "-c", "echo broadcast refused >&2; exit 3",
@@ -169,7 +171,7 @@ for what, _, r, c in sys.pread({
   end
 end
 if reason ~= "exited" or rc ~= 0 then
-  print("failed: " .. table.concat(diag):gsub("%s+$", ""))
+  print("failed: " .. arr.concat(diag):gsub("%s+$", ""))
 end
 ]],
     },

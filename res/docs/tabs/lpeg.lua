@@ -418,6 +418,7 @@ return #t
       }),
       code = [[
 local lp = require("santoku.lpeg")
+local arr = require("santoku.array")
 local line =
   '{"title":"Dune","tags":["scifi","classic"],"meta":{"title":"nope"},"year":1965}'
 local out = {}
@@ -425,7 +426,7 @@ for s, e in lp.json_fields(line, { "title", "tags" }) do
   out[#out + 1] = line:sub(s, e)
   print(line:sub(s, e))
 end
-return table.concat(out, ", ")
+return arr.concat(out, ", ")
 ]],
     },
 
@@ -439,7 +440,8 @@ return table.concat(out, ", ")
       }),
       code = [[
 local lp = require("santoku.lpeg")
-local text = table.concat({
+local arr = require("santoku.array")
+local text = arr.concat({
   'name,qty\r\n',
   '"Smith, J.",2\r\n',
   '"say ""hi""",3\r\n',
@@ -566,7 +568,8 @@ return lp.html_inject(text, tags)
       }),
       code = [[
 local lp = require("santoku.lpeg")
-local html = table.concat({
+local arr = require("santoku.array")
+local html = arr.concat({
   "<!-- build note -->\n",
   "<div>\n  hello   world\n</div>\n",
   "<pre>  keep   this  </pre>",
@@ -580,18 +583,20 @@ return lp.minify_html(html)
       desc = table.concat({
         "Rewrite inline script and style bodies through js and css transform functions, ",
         "leaving scripts with a src attribute untouched. In release builds the transforms ",
-        "are the JS and CSS minifiers; here string.upper makes the rewriting visible.",
+        "are the JS and CSS minifiers; here str.upper makes the rewriting visible.",
       }),
       code = [[
 local lp = require("santoku.lpeg")
-local html = table.concat({
+local arr = require("santoku.array")
+local str = require("santoku.string")
+local html = arr.concat({
   '<style>.a { color: red }</style>',
   '<script src="x.js">keep</script>',
   '<script>var x = 1;</script>',
 })
 return lp.transform_inline(html, {
-  js = string.upper,
-  css = string.upper,
+  js = str.upper,
+  css = str.upper,
 })
 ]],
     },
@@ -606,7 +611,8 @@ return lp.transform_inline(html, {
       }),
       code = [[
 local lp = require("santoku.lpeg")
-local parts = lp.component_parts(table.concat({
+local arr = require("santoku.array")
+local parts = lp.component_parts(arr.concat({
   '<style>.card { color: red }</style>\n',
   '<div class="card">hi</div>\n',
   '<script src="lib.js"></script>\n',
@@ -631,7 +637,7 @@ return parts.body
       }),
       code = [=[
 local strip = require("santoku.lpeg.strip")
-local src = table.concat({
+local src = arr.concat({
   'local x = 1 -- setup\n',
   '-- whole line\n',
   'local s = "-- not a comment"\n',
@@ -683,7 +689,8 @@ return (strip.strip_html("<div>a<!-- c -->b</div>"))
       }),
       code = [[
 local strip = require("santoku.lpeg.strip")
-local sh = table.concat({
+local arr = require("santoku.array")
+local sh = arr.concat({
   "#!/bin/sh\n",
   "cat <<'CONF'\n",
   "# keep: heredoc body\n",

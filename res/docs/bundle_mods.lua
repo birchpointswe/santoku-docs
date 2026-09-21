@@ -43,7 +43,6 @@ return {
   "santoku.env",
   "santoku.test",
   "santoku.web.pwa.csp",
-  "santoku.sqlite.search",
   "santoku.sqlite.fts",
   "santoku.sqlite.migrate",
   "santoku.sqlite.sync",

@@ -78,7 +78,7 @@ my-api/server/test/spec/my_api.lua
         "constructed and finalized when their connection closes, so a statement ",
         "prepared in the master is already dead by the time the workers exist, and ",
         "the first request fails with nothing in the log to explain it. That covers ",
-        "santoku.sqlite.sync's create and santoku.sqlite.search's create as much as ",
+        "santoku.sqlite.sync's create and santoku.sqlite.fts's create as much as ",
         "the scaffold's own getters.",
       }),
       runnable = false,

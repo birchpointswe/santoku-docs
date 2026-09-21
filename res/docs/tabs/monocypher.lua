@@ -341,6 +341,7 @@ return verify(signature, payload)
       }),
       code = [[
 local crypto = require("santoku.monocypher")
+local arr = require("santoku.array")
 local function totp (key, now, period, digits)
   local counter = num.floor(now / period)
   local msg = {}
@@ -348,7 +349,7 @@ local function totp (key, now, period, digits)
     msg[i] = str.char(counter % 256)
     counter = num.floor(counter / 256)
   end
-  local hex = crypto.hmac_sha1(key, table.concat(msg))
+  local hex = crypto.hmac_sha1(key, arr.concat(msg))
   local offset = tonumber(hex:sub(40, 40), 16)
   local v = tonumber(hex:sub(offset * 2 + 1, offset * 2 + 8), 16) % 0x80000000
   local code = tostring(num.floor(v % 10 ^ digits))
@@ -459,7 +460,7 @@ for rid, text in pairs(rows) do
   ids[#ids + 1] = rid
 end
 arr.sort(ids)
-local manifest = table.concat(ids, ";")
+local manifest = arr.concat(ids, ";")
 local sig = id:sign_request(manifest)
 print("manifest ok:", crypto.verify_request(id:public_key(), sig, id:sub(), manifest))
 print("note:1:", dbkey:decrypt(sealed["note:1"], "note:1"))

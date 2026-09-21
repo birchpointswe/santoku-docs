@@ -296,6 +296,7 @@ return conf({
       title = "The nginx pipeline",
       desc = "A server/nginx.tk.conf is a santoku-template block expanded by the build harness, and one shape it can take is to compute hashed asset names and then render a mustache conf source with the project config as context. Such a conf reaches nested config with dotted paths like {{nginx.port}} and {{nginx.error_log}}, and uses escaped dots, {{modules.my-app\\.search\\.init}}, to index a module table whose keys are full dotted module names.",
       code = [[
+local arr = require("santoku.array")
 <%
   local ctx = nginx
   ctx.context_path = (client and client.context_path) or ""
@@ -305,7 +306,7 @@ return conf({
   for _, k in ipairs((server or {}).nginx_env_vars or {}) do
     env_lines[#env_lines + 1] = "env " .. k .. ";"
   end
-  ctx.nginx_env_lines = table.concat(env_lines, "\n")
+  ctx.nginx_env_lines = arr.concat(env_lines, "\n")
   return require("santoku.mustache")(readfile("res/nginx.conf"))(ctx)
 %>
 ]],

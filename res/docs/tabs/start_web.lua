@@ -356,6 +356,7 @@ end,
       runnable = false,
       lang = "lua",
       code = [[
+local arr = require("santoku.array")
 -- client/static/serviceworker.tk.js, rendered to /serviceworker.js
 <%
   local str = require("santoku.string")
@@ -368,7 +369,7 @@ end,
   local precache = { "/bundle.js", "/bundle.wasm" }
 
   -- content-derived, so an identical build keeps the same cache
-  local nonce = str.to_base64(str.sha256(table.concat(precache, "\n")
+  local nonce = str.to_base64(str.sha256(arr.concat(precache, "\n")
     .. "\n" .. str.sha256(app_html))):sub(1, 22)
 
   return sw({
