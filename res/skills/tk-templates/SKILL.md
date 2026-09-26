@@ -65,7 +65,10 @@ module table, which exports `compile`, `compilefile`, `render`, `renderfile`,
 ## What a template can see
 
 `readfile(path)` and `root_dir` let a small `.tk` file pull in a larger template kept under
-`res/`. Web projects additionally inject `hashed(name)` (the correct way to reference a
+`res/`. `depend(path, prune)` records a file or a directory tree as a dependency without
+reading it, and returns `path`. Use it for anything a block reaches through `fs.runfile`,
+`require` or a directory walk, since `readfile` records only what it reads. Web projects
+additionally inject `hashed(name)` (the correct way to reference a
 content-hashed asset), `version`, the descriptor's `client` and `nginx` blocks, `modules`,
 `openresty_dir`, the lua package paths, and the output directories. The full list is on the
 santoku-template tab.

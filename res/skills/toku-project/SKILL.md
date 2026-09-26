@@ -16,11 +16,11 @@ name.
 | --- | --- |
 | `make.lua` | the descriptor: name, version, license, dependencies, per-type blocks |
 | `make.<env>.lua` | an environment variant, selected with `--env <name>` |
-| `lib/` | Lua modules; `.c` files here compile as Lua modules with no extra configuration |
+| `lib/` | Lua modules; `.c` files here compile as Lua modules with no extra configuration. For another rock's headers, add `rock.include("<rock>")` from `santoku.make.rock` to `cflags` and list the rock in `dependencies` |
 | `bin/` | executables; `toku install --bundled` compiles them to single native binaries |
 | `res/` | resources installed with the rock and readable at runtime |
 | `test/spec/` | specs, discovered recursively, each run in its own interpreter |
-| `deps/<dep>/` | a vendored template (Makefile plus helpers) copied into the build tree |
+| `deps/<dep>/` | a vendored template (Makefile plus helpers) copied into the build tree; its `results.mk` rule must list `Makefile` as a prerequisite, or the build stops |
 | `client/` | web projects: `bin/`, `lib/`, `res/`, `static/`, `test/spec/` |
 | `server/` | web projects: `lib/`, `test/spec/`, `nginx.tk.conf` |
 
@@ -67,7 +67,8 @@ toku test --skip-check               # skip luacheck
 toku build --test                    # web: render client wasm and server tree
 toku start --test                    # web: run OpenResty against it
 toku stop                            # web: stops both environments
-toku exec -- lua -e '...'            # a command inside the test environment
+toku lua --tree test script.lua      # a script against the test tree
+eval "$(toku env --tree test)"       # LUA_PATH and LUA_CPATH for any command
 toku install                         # install into the active rocks tree
 toku pack                            # rockspec and tarball, no release
 ```

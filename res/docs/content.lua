@@ -50,7 +50,7 @@ return {
       url = repo .. "lua-santoku-web",
       content = require("docs.tabs.web") },
     { id = "santoku-sqlite", label = "santoku-sqlite", group = "Data and machine learning",
-      desc = "SQLite for Lua: prepared-statement query closures, transactions, zero-copy carray vector binds, TF/cosine search, and fully encrypted databases",
+      desc = "SQLite for Lua: prepared-statement query closures, transactions, zero-copy carray vector binds, FTS5 full-text search over santoku tokens, and fully encrypted databases",
       url = repo .. "lua-santoku-sqlite",
       content = require("docs.tabs.sqlite") },
     { id = "santoku-sqlite-sync", label = "santoku-sqlite sync", group = "Data and machine learning",

@@ -94,12 +94,12 @@ return {
         "santoku >= 2.0.0, < 3.0.0",
         "santoku-web >= 2.2.3, < 3.0.0",
         "santoku-fs >= 2.0.0, < 3.0.0",
-        "santoku-lpeg >= 2.0.0, < 3.0.0",
-        "santoku-matrix >= 2.0.1, < 3.0.0",
-        "santoku-sqlite >= 4.0.6, < 5.0.0",
+        "santoku-lpeg >= 2.2.0, < 3.0.0",
+        "santoku-matrix >= 2.3.0, < 3.0.0",
+        "santoku-sqlite >= 4.0.9, < 5.0.0",
         "santoku-sqlite-migrate >= 2.0.0, < 3.0.0",
-        "santoku-learn >= 2.0.1, < 3.0.0",
-        "santoku-template >= 2.0.0, < 3.0.0",
+        "santoku-learn >= 3.2.0, < 4.0.0",
+        "santoku-template >= 2.0.3, < 3.0.0",
         "santoku-mustache >= 2.1.0, < 3.0.0",
         "santoku-markdown >= 2.1.0, < 3.0.0",
         "santoku-monocypher >= 2.0.1, < 3.0.0",
@@ -138,12 +138,12 @@ return {
       test = {
         dependencies = {
           "santoku >= 2.0.6, < 3.0.0",
-          "santoku-make >= 5.1.0, < 6.0.0",
-          "santoku-cli >= 2.12.0, < 3.0.0",
+          "santoku-make >= 5.1.13, < 6.0.0",
+          "santoku-cli >= 2.14.3, < 3.0.0",
           "santoku-fs >= 2.1.3, < 3.0.0",
           "santoku-web >= 2.2.3, < 3.0.0",
           "santoku-http >= 2.0.0, < 3.0.0",
-          "santoku-sqlite >= 4.0.6, < 5.0.0",
+          "santoku-sqlite >= 4.0.9, < 5.0.0",
         }
       }
     },
