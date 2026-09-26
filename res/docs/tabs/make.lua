@@ -91,9 +91,10 @@ return fs.readfile("out/upper.txt")
       desc = table.concat({
         "For any target t the engine also reads t .. \".d\", a make-style dependency ",
         "file, and folds the newest listed file into staleness. The project layer ",
-        "writes one next to every rendered template: the render env's readfile records ",
-        "each file the template pulls in, and serialize_deps saves the set. Editing an ",
-        "included file then restales the output even though it is not a direct dep.",
+        "writes one next to every rendered template. The render env's readfile records ",
+        "each file the template reads, depend records a file or directory tree without ",
+        "reading it, and serialize_deps saves the set as one line. Editing a recorded ",
+        "file then restales the output even though it is not a direct dep.",
       }),
       runnable = false,
       code = [[
@@ -109,6 +110,10 @@ m.target({ "out/page.html" }, { "res/page.tk.html" }, function (ts, ds)
       deps[fp] = true
       return fs.readfile(fp)
     end,
+    depend = function (fp)
+      deps[fp] = true
+      return fp
+    end,
   }
   fs.mkdirp(fs.dirname(ts[1]))
   fs.writefile(ts[1], tmpl.renderfile(ds[1], env))
@@ -117,6 +122,30 @@ end)
 m.build({ "out/page.html" }, 2)
 print("if the template read res/header.html, touching it restales out/page.html")
 return true
+]],
+    },
+
+    {
+      title = "depend: track files a template never reads",
+      desc = table.concat({
+        "Every project template render gets depend(path, prune) beside readfile. depend ",
+        "records a file in the .d sidecar without reading it, and returns path, so it ",
+        "wraps anything a block reaches through fs.runfile, require, or a directory walk. ",
+        "On a directory it also records every entry under it, so adding or removing a ",
+        "file restales the output. prune(path, mode) returns true for an entry or subtree ",
+        "to leave out.",
+      }),
+      runnable = false,
+      lang = "text",
+      code = [[
+<%
+  local fs = require("santoku.fs")
+  local helper = fs.runfile(depend("res/app_html.lua"))
+  depend("res/icons", function (fp)
+    return fs.basename(fp) == "drafts"
+  end)
+  return helper.render()
+%>
 ]],
     },
 
@@ -350,16 +379,20 @@ $ LUAROCKS_API_KEY=... toku release
       desc = table.concat({
         "toku is a thin front end: project.init reads the descriptor and returns the ",
         "lifecycle table. test builds and runs the suite, install runs luarocks make, ",
-        "exec runs a command with the project LUA_PATH and LUA_CPATH, and clean returns ",
-        "the list of paths it removed (or would remove with dry_run).",
+        "lua_env(tree) builds a lua tree and returns its interpreter with absolute ",
+        "lua_path and lua_cpath, which toku lua --tree and toku env --tree use, and ",
+        "clean returns the list of paths it removed (or would remove with dry_run).",
       }),
       runnable = false,
       code = [[
 local project = require("santoku.make.project")
+local sys = require("santoku.system")
 local m = project.init({ env = "default" })
 m.test({ skip_check = true })
 m.install()
-m.exec({ "lua", "-e", "print('runs with the project LUA_PATH')" })
+local t = m.lua_env("test")
+sys.execute({ t.lua, "-e", "print('runs against the test tree')",
+  env = { LUA_PATH = t.lua_path, LUA_CPATH = t.lua_cpath } })
 local removed = m.clean({ deps = true, dry_run = true })
 print("clean --deps would remove", #removed, "paths")
 return m.config.env.name
@@ -374,7 +407,10 @@ return m.config.env.name
         "results.mk; the generated build discovers each deps directory, runs its ",
         "Makefile, and includes the result. The idiom is to compile upstream sources ",
         "directly with $(CC) $(CFLAGS) and archive them, never running the upstream's ",
-        "own configure. This is santoku-sqlite's real shape.",
+        "own configure, as santoku-sqlite does. The results.mk rule must list Makefile ",
+        "as a prerequisite, or editing the Makefile would rebuild nothing, so the build ",
+        "stops with an error when it doesn't. Objects compile with -MMD -MP, so editing ",
+        "a header recompiles every object that includes it.",
       }),
       runnable = false,
       code = [[
@@ -386,12 +422,39 @@ ldflags = {
   "-lm",
 },
 
-results.mk:
+results.mk: Makefile
 	[ -f sqlite-amalgamation-$(V).zip ] || exit 1
 	unzip sqlite-amalgamation-$(V).zip
 	cd $(DIR) && $(CC) -c $(SQLITE_CFLAGS) $(CFLAGS) -o sqlite3.o sqlite3.c
 	cd $(DIR) && $(AR) rcs libsqlite3.a sqlite3.o
 	touch results.mk
+]],
+    },
+
+    {
+      title = "Headers from another rock: santoku.make.rock",
+      desc = table.concat({
+        "A C extension that includes another rock's headers lists that rock in ",
+        "dependencies and adds rock.include(name) to cflags. include returns -I plus ",
+        "incdir(name), a Makefile expression that resolves to the include directory of ",
+        "the rock installed in the tree being built. The build stops with an error ",
+        "naming the rock when it isn't installed there.",
+      }),
+      runnable = false,
+      code = [[
+local rock = require("santoku.make.rock")
+return {
+  type = "lib",
+  env = {
+    name = "my-lib",
+    version = "0.0.1-1",
+    cflags = { rock.include("santoku-monocypher") },
+    dependencies = {
+      "lua == 5.1",
+      "santoku-monocypher >= 2.0.1, < 3.0.0",
+    },
+  },
+}
 ]],
     },
 

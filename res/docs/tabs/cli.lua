@@ -4,7 +4,7 @@ return {
     "santoku-cli ships toku, the command-line front end of the framework: every santoku ",
     "rock, and this documentation site itself, is built, tested, and released with it. ",
     "The commands fall into two groups. The project lifecycle (init, test, install, pack, ",
-    "release, exec, clean, plus build, start, and stop for web projects) is driven by ",
+    "release, env, clean, plus build, start, and stop for web projects) is driven by ",
     "santoku-make from a plain-Lua make.lua descriptor: sources are rendered into a build ",
     "tree, dependencies are installed with luarocks into a private lua_modules, specs run ",
     "against that tree, and the same tree feeds install and the luarocks release flow. ",
@@ -20,13 +20,13 @@ return {
     {
       title = "The command surface",
       desc = table.concat({
-        "Thirteen subcommands, listed here with their descriptions verbatim from the ",
+        "Every subcommand, listed here with its description verbatim from the ",
         "argparse declarations in bin/toku.tk.lua. Every invocation also accepts ",
         "--verbosity N (default 1): 0 silences the [make] line printed per rebuilt ",
         "target, 2 and up adds [ok], [src], and [phony] trace lines. build, start, and ",
         "stop apply to web projects, and a server-only API project is a web project ",
-        "to the harness, so all three apply to it too. install, pack and exec are ",
-        "the mirror image: library projects only.",
+        "to the harness, so all three apply to it too. install and pack are the ",
+        "mirror image: library projects only.",
       }),
       runnable = false,
       code = [[
@@ -35,7 +35,7 @@ toku test       Run tests
 toku install    Install the project
 toku pack       Build rockspec and tarball without releasing
 toku release    Release the project
-toku exec       Execute a command in the build environment
+toku env        Print shell exports for a project lua tree, for eval
 toku clean      Clean build artifacts
 toku build      Build the project
 toku start      Start the server
@@ -43,6 +43,11 @@ toku stop       Stop the server
 toku template   Process templates
 toku bundle     Create standalone executables
 toku lua        Run the lua interpreter on a file
+toku setup      Maintain the toku-managed lua 5.1 toolchain (provisioned by setup-toku.sh from santoku.dev)
+toku skills     Install the santoku agent skills from santoku.dev into your home directory, never into a project
+toku doctor     Diagnose the managed toolchain and PATH wiring
+toku luarocks   Run the managed luarocks
+toku luac       Run the resolved luac
 ]],
     },
 
@@ -81,7 +86,7 @@ my-lib/test/spec/my_lib.lua
       title = "make.lua: the project descriptor",
       desc = table.concat({
         "Everything toku knows about a project comes from make.lua, a plain Lua file ",
-        "returning { env = ... }. This is santoku-cli's own descriptor verbatim: name and ",
+        "returning { env = ... }. This one follows santoku-cli's own descriptor: name and ",
         "version become the rockspec, dependencies are luarocks constraints, public = ",
         "true is what makes toku release available, and computed fields are plain Lua ",
         "expressions (env.download becomes the rockspec source url).",
@@ -89,20 +94,20 @@ my-lib/test/spec/my_lib.lua
       code = [[
 local env = {
   name = "santoku-cli",
-  version = "2.4.4-1",
+  version = "2.15.0-1",
   variable_prefix = "TK_CLI",
   license = "MIT",
   public = true,
   dependencies = {
     "lua == 5.1",
     "santoku >= 2.0.0, < 3.0.0",
-    "santoku-fs >= 2.0.0, < 3.0.0",
+    "santoku-fs >= 2.2.0, < 3.0.0",
     "santoku-template >= 2.0.0, < 3.0.0",
     "santoku-bundle >= 2.0.0, < 3.0.0",
     "santoku-system >= 2.0.0, < 3.0.0",
-    "santoku-test-runner >= 2.0.0, < 3.0.0",
-    "santoku-make >= 5.0.0, < 6.0.0",
-    "argparse >= 0.7.1-1",
+    "santoku-test-runner >= 2.0.3, < 3.0.0",
+    "santoku-make >= 5.2.0, < 6.0.0",
+    "argparse >= 0.7.1-1, < 1.0.0",
   },
 }
 env.homepage = "https://github.com/birchpointswe/lua-" .. env.name
@@ -122,8 +127,8 @@ return { env = env }
         "make.lua and builds under build/prod/. Files ending .tk are rendered through ",
         "santoku-template against the descriptor env with the extension stripped, so ",
         "lib/my_lib.tk.lua lands as lib/my_lib.lua; a .d sidecar next to each rendered ",
-        "file records what the template read, so touching an included file restales the ",
-        "output. The *.flag files persist CLI options like --single and --skip-check so ",
+        "file records what the template read through readfile and declared through ",
+        "depend, so editing either restales the output. The *.flag files persist CLI options like --single and --skip-check so ",
         "that changing them restales the generated run and check scripts.",
       }),
       runnable = false,
@@ -152,8 +157,9 @@ default  prod
         "runs with -p, so the rendered nginx.conf refers to it by relative path. A ",
         "server-only project still gets a client subtree, holding little more than a ",
         "lua_modules.ok stamp. When a script needs the project's own modules and its ",
-        "pinned rocks, dist/lua_modules is the tree to point LUA_PATH and LUA_CPATH ",
-        "at. dist also holds run.sh, nginx.conf, server.pid and logs.",
+        "pinned rocks, toku lua --tree test or --tree build points LUA_PATH and ",
+        "LUA_CPATH at the matching dist/lua_modules. dist also holds run.sh, ",
+        "nginx.conf, server.pid and logs.",
       }),
       runnable = false,
       code = [[
@@ -166,10 +172,7 @@ lua_modules  nginx.conf  nginx-fg.conf  run.sh
 $ ls build/default/test/dist       # after a start: run.sh makes these
 logs  lua_modules  nginx.conf  nginx-fg.conf  run.sh  server.pid  temp
 
-$ export LUA_PATH="$PWD/build/default/test/dist/lua_modules/share/lua/5.1/?.lua;\
-$PWD/build/default/test/dist/lua_modules/share/lua/5.1/?/init.lua;;"
-$ export LUA_CPATH="$PWD/build/default/test/dist/lua_modules/lib/lua/5.1/?.so;;"
-$ toku lua scripts/load.lua
+$ toku lua --tree test scripts/load.lua
 ]],
     },
 
@@ -487,23 +490,25 @@ $ toku test --single server/test/spec/my-app.lua
     },
 
     {
-      title = "toku exec: a shell inside the test env",
+      title = "--tree and toku env: run against a project lua tree",
       desc = table.concat({
-        "Installs the test dependencies if needed, then runs an arbitrary command in ",
-        "build/default/test with LUA_PATH and LUA_CPATH pointing at that tree's ",
-        "lua_modules, so ad-hoc scripts run against the same tree the specs do: the ",
-        "rendered sources and the pinned rocks. It is a library-project command; on a ",
-        "web or API project it errors with \"exec is not available (requires a ",
-        "non-wasm lib project)\", because those trees have no single lua_modules to ",
-        "select. Set the two variables yourself against dist/lua_modules there, as ",
-        "the build tree section above shows.",
+        "toku lua --tree <name> builds a project lua tree if needed, then runs the ",
+        "interpreter with LUA_PATH and LUA_CPATH pointing at it, so ad-hoc scripts see ",
+        "the same rendered sources and pinned rocks the specs do. A library project has ",
+        "one tree, test. A web or API project has test and build, the test and ",
+        "production server trees, run under OpenResty's luajit when it's installed. ",
+        "Paths are absolute and the script runs in your current directory. --env, --dir ",
+        "and --config pick the build environment as they do elsewhere. For anything ",
+        "other than lua, toku env --tree <name> prints export lines to eval into your ",
+        "shell.",
       }),
       runnable = false,
       code = [[
-$ toku exec lua test/spec/my_lib.lua
-Test:   test/spec/my_lib.lua
-$ toku exec luarocks list
-$ toku exec sqlite3 tmp.db
+$ toku lua --tree test scripts/seed.lua
+$ toku lua --env prod --tree build --string 'print(require("my_app.db"))'
+$ eval "$(toku env --tree test)"
+$ luarocks list
+$ sqlite3 tmp.db
 ]],
     },
 
@@ -571,18 +576,23 @@ $ toku skills
     {
       title = "toku lua: an instrumented interpreter",
       desc = table.concat({
-        "Runs a string or file under the configured interpreter (--lua overrides), ",
-        "assembling -l preloads for the requested instruments: --trace loads ",
-        "santoku.trace for line tracing, and --serialize loads santoku.autoserialize, ",
-        "which wraps the global print so tables come out as readable Lua literals ",
-        "instead of table: 0x... addresses.",
+        "Runs a string or file under the configured interpreter (--lua overrides). The ",
+        "file comes positionally or with --file, and passing a path together with --file ",
+        "or --string is an error. --tree runs against a project lua tree, covered above.",
+        "The instruments become -l preloads: --trace loads santoku.trace for line ",
+        "tracing, and --serialize loads santoku.autoserialize, which wraps the global ",
+        "print so tables come out as readable Lua literals instead of table: 0x... ",
+        "addresses.",
       }),
       runnable = false,
       code = [[
+$ toku lua scripts/load.lua
 $ toku lua --string 'print(1 + 2)'
 3
 $ toku lua --serialize --string 'print({ a = 1, b = { 2, 3 } })'
-$ toku lua --file scripts/step-through.lua --trace
+$ toku lua --trace scripts/step-through.lua
+$ toku lua scripts/a.lua --string 'x()'
+toku lua takes one of a script path, --file or --string
 ]],
     },
 
@@ -593,8 +603,9 @@ $ toku lua --file scripts/step-through.lua --trace
         "renders one file (- is stdin or stdout), -d renders a directory tree with -t ",
         "trimming a prefix from output paths, and -c loads a Lua config whose env ",
         "table becomes the render environment. -M writes a make-style .d file next to ",
-        "each output listing every file the template read through readfile, which is ",
-        "how the build harness gets transitive template dependencies.",
+        "each output: one line naming the source and every file the template read ",
+        "through readfile. toku template injects readfile only; depend exists in ",
+        "project builds.",
       }),
       runnable = false,
       code = [[
@@ -604,7 +615,6 @@ $ toku template -d res/tmpl -t res/tmpl -o build/out -c cfg.lua
 $ toku template -f res/index.tk.html -o build/index.html -M
 $ cat build/index.html.d
 res/index.tk.html: res/header.html
-build/index.html: res/index.tk.html
 ]],
     },
 

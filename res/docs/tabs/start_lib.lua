@@ -160,9 +160,9 @@ my-lib/test/spec/my_lib.lua
         "test/spec, each in its own interpreter process. Because the test tree is a ",
         "real installed rock, specs run against the installed layout, not your source ",
         "tree. toku install builds the shippable ",
-        "tree and installs it into your active rocks tree. toku exec runs any command ",
-        "inside the test environment with LUA_PATH and LUA_CPATH already pointed at ",
-        "it.",
+        "tree and installs it into your active rocks tree. toku lua --tree test runs a ",
+        "script against the test environment, and toku env --tree test prints the ",
+        "LUA_PATH and LUA_CPATH exports for any other command.",
       }),
       runnable = false,
       lang = "text",
@@ -174,7 +174,8 @@ $ toku test --single test/spec/my_lib.lua
 $ toku test -m core -s               # filter by pattern, stop at first failure
 $ toku test --lua luajit             # run the specs under a different interpreter
 $ toku install                       # install into the active rocks tree
-$ toku exec -- lua -e 'print(require("my_lib"))'   # note the --, toku parses -e otherwise
+$ toku lua --tree test --string 'print(require("my_lib"))'
+$ eval "$(toku env --tree test)"     # then any command sees the test tree
 ]],
     },
 

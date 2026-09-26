@@ -47,7 +47,7 @@ return tostring(via_render == via_compile)
       code = [[
 local template = require("santoku.template")
 local arr = require("santoku.array")
-print(template.render("<% return string.upper(word) %>", { word = "loud" }, _G))
+print(template.render("<% return tostring(#word) %>", { word = "loud" }, _G))
 return template.render("<% return arr.concat(names, ', ') %>", { names = { "ada", "grace" } }, _G)
 ]],
     },
@@ -196,7 +196,7 @@ return template.render("<% return renderfile('test/res/template/index.html') %>"
 
     {
       title = "Makefile-style dependency rules",
-      desc = "serialize_deps emits a rule from a dep set the caller recorded; deserialize_deps parses one back.",
+      desc = "serialize_deps(source, dest, deps) emits one make rule, source: deps, from a dep set the caller recorded. dest must be a string but doesn't appear in the output, and dep order follows table iteration. deserialize_deps reads the first line back into a set.",
       code = [[
 local template = require("santoku.template")
 local arr = require("santoku.array")
@@ -213,7 +213,7 @@ return arr.concat(names, ", ")
 
     {
       title = "How toku expands a .tk file",
-      desc = "Any file with .tk in its name is templated and the .tk stripped from the destination (rules.copy, rules.exclude, and rules.template override the default); the harness renders against the project env plus a dep-recording readfile, then writes the output and a .d rule beside it.",
+      desc = "Any file with .tk in its name is templated and the .tk stripped from the destination (rules.copy, rules.exclude, and rules.template override the default); the harness renders against the project env plus a dep-recording readfile and depend, then writes the output and a one-line .d rule beside it.",
       runnable = false,
       code = [[
 local template = require("santoku.template")
@@ -236,12 +236,12 @@ print("wrote main.lua and its dependency rule")
 
     {
       title = "Config values into Lua source",
-      desc = "A .tk.lua file bakes project configuration into the shipped module. toku web projects hand every template an env carrying name, version, client, server, nginx, environment, component, target, dist_dir, work_dir, hashed, and readfile. Interpolation like this is for values. To leave code out of a build entirely, gate it with push and pop: a rendered runtime condition still compiles the dead branch and everything inside it into the output.",
+      desc = "A .tk.lua file bakes project configuration into the shipped module. toku web projects hand every template an env carrying name, version, client, server, nginx, environment, component, target, dist_dir, work_dir, hashed, readfile, and depend. Interpolation like this is for values. To leave code out of a build entirely, gate it with push and pop: a rendered runtime condition still compiles the dead branch and everything inside it into the output.",
       runnable = false,
       code = [[
-return {
-  name = <% return string.format("%q", name) %>,
-  version = <% return string.format("%q", version) %>,
+<% str = require("santoku.string") %>return {
+  name = <% return str.format("%q", name) %>,
+  version = <% return str.format("%q", version) %>,
   verbose = <% return tostring(client.verbose or false) %>,
 }
 ]],
@@ -252,8 +252,8 @@ return {
       desc = "A server/nginx.tk.conf can be one block: it resolves content-hashed filenames with the build's hashed helper, assembles env directives from config, then hands a mustache conf source off to santoku.mustache against a context table. The block's readfile calls are recorded as dependencies, so the conf rebuilds when that source changes.",
       runnable = false,
       code = [[
-local arr = require("santoku.array")
 <%
+  local arr = require("santoku.array")
   local ctx = nginx
   ctx.index_hashed = hashed("index.html")
   ctx.common_js_hashed = hashed("common.js")
@@ -274,6 +274,7 @@ local arr = require("santoku.array")
       code = [[
 <%
   local tbl = require("santoku.table")
+  local str = require("santoku.string")
   local index = require("santoku.web.pwa.index")
   local csp = require("santoku.web.pwa.csp")
   local html = index(tbl.merge({
@@ -285,7 +286,7 @@ local arr = require("santoku.array")
     head = '<link rel="stylesheet" href="/' .. hashed("index.css") .. '">',
   }))
   local meta = csp.meta(csp.script_hashes(html))
-  return (html:gsub("<head>", function () return "<head>\n" .. meta end, 1))
+  return (str.gsub(html, "<head>", function () return "<head>\n" .. meta end, 1))
 %>
 ]],
     },
@@ -321,7 +322,9 @@ add_templated_target_base64(server_dir(base_server_luarocks_cfg),
       code = [[
 -- available inside <% %> when rendering a web project's templates:
 readfile(path)          -- read a file, relative to the project root
-root_dir                -- absolute path to the project root
+depend(path, prune)     -- record a file or directory tree as a dependency
+                        -- without reading it; returns path
+root_dir               -- absolute path to the project root
 hashed(name)            -- a deferred token, resolved after hashing;
                         -- in server/nginx.tk.conf it is the final name
 version                 -- the descriptor's version

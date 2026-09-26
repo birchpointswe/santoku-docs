@@ -356,9 +356,9 @@ end,
       runnable = false,
       lang = "lua",
       code = [[
-local arr = require("santoku.array")
 -- client/static/serviceworker.tk.js, rendered to /serviceworker.js
 <%
+  local arr = require("santoku.array")
   local str = require("santoku.string")
   local sw = require("santoku.web.pwa.sw")
 
@@ -389,8 +389,9 @@ local arr = require("santoku.array")
         "for navigations, so the two are built together: generate the HTML, hand it to ",
         "sw as index_html, and point the document at the worker with sw. Both renders ",
         "need the same app_html, so build it once where both can reach it: put the ",
-        "index(...) call in a helper under res/ and runfile it from the serviceworker ",
-        "template. initial = true is required, since only that branch emits the script ",
+        "index(...) call in a helper under res/ and load it from the serviceworker ",
+        "template with fs.runfile(depend(fs.join(root_dir, \"res/app_html.lua\"))), so ",
+        "editing the helper rebuilds serviceworker.js. initial = true is required, since only that branch emits the script ",
         "that registers the worker. Set csp = true ",
         "and the policy is built from the hashes of the inline scripts actually present ",
         "in the output, which is why it must run after any transforms. manifest points ",

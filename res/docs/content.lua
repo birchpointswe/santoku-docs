@@ -98,7 +98,7 @@ return {
       url = repo .. "lua-santoku-matrix",
       content = require("docs.tabs.matrix") },
     { id = "santoku-learn", label = "santoku-learn", group = "Data and machine learning",
-      desc = "machine learning toolkit: n-gram tokenization, gazetteer matching, booleanization, spectral embeddings, ridge regression, calibrated decisions, and ANN retrieval",
+      desc = "machine learning toolkit: n-gram tokenization, gazetteer matching, booleanization, spectral embeddings, ridge regression, and calibrated decisions",
       url = repo .. "lua-santoku-learn",
       content = require("docs.tabs.learn") },
     { id = "santoku-learn-llama", label = "santoku-learn-llama", group = "Data and machine learning",

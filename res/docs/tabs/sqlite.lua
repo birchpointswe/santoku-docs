@@ -250,8 +250,9 @@ return count()
       title = "errors carry the SQLite message and code",
       desc = table.concat({
         "The wrapper raises through santoku.error with errmsg and errcode from the connection, so ",
-        "err.pcall recovers them as separate values. The module also exports the raw result constants ",
-        "OK, ERROR, ROW, and DONE.",
+        "err.pcall recovers them as separate values. A statement that fails to prepare raises ",
+        "from the C layer instead, with a message prefixed prepare: and no code. The module also ",
+        "exports the raw result constants OK, ERROR, ROW, and DONE.",
       }),
       code = [[
 local err = require("santoku.error")
@@ -264,10 +265,10 @@ end)
 print("ok:", ok)
 print("message:", msg)
 print("code:", code, code == sqlite.ERROR)
-local ok2 = err.pcall(function ()
+local ok2, msg2 = err.pcall(function ()
   return db.runner("select x from nope")
 end)
-print("prepare fails too:", ok2)
+print("prepare fails too:", ok2, msg2)
 return code
 ]],
     },
@@ -395,9 +396,12 @@ return #labels
       title = "raw statements and carray slices",
       desc = table.concat({
         "db.db:prepare exposes the statement object: step, reset (which also clears bindings), ",
-        "get_value, get_named_values, columns, bind_values, bind_names, and bind_carray(pidx, vec, ",
-        "start, count), which binds a zero-copy slice and raises on out-of-range bounds. Compare step ",
-        "results against the exported ROW and DONE constants.",
+        "get_value, get_values, get_named_values, columns, column_names, bind_values, bind_names, ",
+        "and bind_carray(pidx, vec, start, count), which binds a zero-copy slice and raises on ",
+        "out-of-range bounds. bind_tokens, bind_match and bind_weights encode token ids, OR-joined ",
+        "query terms and query weights for the santoku FTS5 tokenizer and its santoku_bm25 and ",
+        "santoku_bm25_max ranking functions, which every connection registers. Compare step results ",
+        "against the exported ROW and DONE constants.",
       }),
       code = [[
 local err = require("santoku.error")
@@ -425,73 +429,67 @@ return "done"
     },
 
     {
-      title = "cosine search from scratch with carray joins",
+      title = "fts: full-text search over your own tokens",
       desc = table.concat({
-        "The TF/cosine index is plain SQL over carray inputs; this is the statement shape ",
-        "a cosine index prepares, inlined so it runs here. Token ids and weights stream in as ",
-        "vecs, norms are precomputed per document, and one grouped join scores and ranks the corpus ",
-        "(the build enables SQLite's math functions, so sqrt is available).",
+        "santoku.sqlite.fts is the search path to reach for. It puts SQLite's FTS5 index ",
+        "underneath and keeps santoku.learn.tokenizer in front of it, so regions, ",
+        "terminals, tags and focus still decide what a token is. FTS5's own tokenizers ",
+        "never see your text. You hand fts a csr of token ids as tokenize returns it. add ",
+        "repeats each id as many times as its value, rounded to the nearest integer and at ",
+        "least once, and replaces any row already stored under the same id. Pass raw counts ",
+        "to add; the ranking applies its own idf. search reads the first row of its csr, ",
+        "ORs the tokens, and ranks with santoku_bm25: bm25 with document-length ",
+        "normalisation, where each query token's value scales its term. Each hit is ",
+        "{ id, score, coverage }. score is the negated bm25, so hits come back ascending ",
+        "and the first is the best. coverage divides the score by the query's weighted idf ",
+        "sum, capped at 1. create takes name, an optional schema, and detail (full, column ",
+        "or none; full by default). Ids may be text; fts keeps a mapping table because FTS5 ",
+        "keys on an integer rowid. Values must be an fvec. Prefer word tokens over ",
+        "character n-grams.",
       }),
       code = [[
 local sqlite = require("santoku.sqlite.db")
 local sql = require("santoku.sqlite")
+local fts = require("santoku.sqlite.fts")
+local str = require("santoku.string")
 local ivec = require("santoku.ivec")
 local fvec = require("santoku.fvec")
+local csr = require("santoku.csr")
 local db = sql(sqlite.open_memory())
-db.exec([=[
-  create table docs_tf (id, token integer not null, tf real not null);
-  create index docs_tf_tok on docs_tf (token);
-  create table docs_doc (id, norm real not null, primary key (id));
-]=])
-local add_tf = db.runner([=[
-  insert into docs_tf (id, token, tf)
-  select ?1, t.value, w.value
-  from carray(?2) t join carray(?3) w on t.rowid = w.rowid
-]=])
-local add_norm = db.runner([=[
-  insert into docs_doc (id, norm)
-  select ?1, sqrt(sum(w.value * w.value)) from carray(?2) w
-]=])
-local function add (id, tokens, weights)
-  add_tf(id, tokens, weights)
-  add_norm(id, weights)
-end
-add("a", ivec.create({ 1, 2, 3 }), fvec.create({ 1, 1, 1 }))
-add("b", ivec.create({ 2, 3, 4 }), fvec.create({ 1, 1, 1 }))
-add("c", ivec.create({ 5, 6 }), fvec.create({ 1, 1 }))
-local query = db.all([=[
-  select s.id as id, sum(s.tf * q.tf) /
-    (d.norm * (select sqrt(sum(value * value)) from carray(?3))) as score
-  from docs_tf s
-  join (select t.value as token, w.value as tf
-    from carray(?2) t join carray(?3) w on t.rowid = w.rowid) q
-    on s.token = q.token
-  join docs_doc d on d.id = s.id
-  group by s.id order by score desc limit ?1
-]=], true)
-local hits = query(10, ivec.create({ 2, 3 }), fvec.create({ 1, 1 }))
+local idx = fts.create(db, { name = "docs" })
+idx.add({ "a", "b", "c", "d", "e" }, csr.create({
+  offsets = ivec.create({ 0, 3, 6, 8, 10, 12 }),
+  neighbors = ivec.create({ 1, 2, 3, 2, 4, 5, 6, 7, 7, 8, 8, 9 }),
+  values = fvec.create({ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 }),
+}))
+local q = csr.create({
+  offsets = ivec.create({ 0, 2 }),
+  neighbors = ivec.create({ 1, 2 }),
+  values = fvec.create({ 1, 1 }),
+})
+local hits = idx.search(q, 10)
 for i = 1, #hits do
-  print(hits[i].id, str.format("%.4f", hits[i].score))
+  print(hits[i].id, str.format("score %.3f coverage %.2f", hits[i].score, hits[i].coverage))
 end
+idx.remove({ "a" })
+print("after remove:", #idx.search(q, 10))
+idx.clear()
+print("after clear:", #idx.search(q, 10))
 return #hits
 ]],
     },
 
     {
-      title = "fts: full-text search over your own tokens",
+      title = "fts: rebuild without blocking readers",
       desc = table.concat({
-        "santoku.sqlite.fts is the search path to reach for. It puts SQLite's FTS5 index ",
-        "underneath, and keeps santoku.learn.tokenizer in front of it, so regions, ",
-        "terminals, tags and focus all still decide what a token is. FTS5's own tokenizers ",
-        "never see your text: you hand fts a csr of token ids exactly as you would hand it ",
-        "to search, it encodes each id as a term and repeats it as many times as the csr ",
-        "says, and FTS5 indexes that. Ranking is FTS5's bm25, which reads the repeats as ",
-        "term frequency and applies document-length normalisation, so no weighting step is ",
-        "needed on your side. Query tokens are OR-ed, matching the union semantics of the ",
-        "csr index rather than FTS5's usual bareword AND. Ids may be text; fts keeps a ",
-        "mapping table because FTS5 itself keys on an integer rowid. Prefer word tokens ",
-        "over character n-grams here, and prefer this over the cosine index below unless ",
-        "you specifically need partitions.",
+        "rebuild(ids, csr, batch) replaces the whole index. It builds a second pair of ",
+        "tables beside the live one, committing batch rows per transaction (5000 by ",
+        "default), then renames the new pair into place in one short transaction and drops ",
+        "the old pair. Searches keep reading the old index until the swap, and other ",
+        "writers only ever wait for one batch. A failed build leaves the live index intact, ",
+        "and the next rebuild drops the partial copy. Call it outside db.transaction, ",
+        "because a nested transaction runs inline and would hold every batch in one. The ",
+        "table names <name>_new_* and <name>_old_* are reserved.",
       }),
       code = [[
 local sqlite = require("santoku.sqlite.db")
@@ -502,23 +500,57 @@ local fvec = require("santoku.fvec")
 local csr = require("santoku.csr")
 local db = sql(sqlite.open_memory())
 local idx = fts.create(db, { name = "docs" })
-idx.add({ "a", "b", "c" }, csr.create({
-  offsets = ivec.create({ 0, 3, 6, 8 }),
-  neighbors = ivec.create({ 1, 2, 3, 2, 3, 4, 5, 6 }),
-  values = fvec.create({ 1, 1, 1, 1, 1, 1, 1, 1 }),
+idx.add({ "a" }, csr.create({
+  offsets = ivec.create({ 0, 1 }),
+  neighbors = ivec.create({ 1 }),
+  values = fvec.create({ 1 }),
 }))
-local q = csr.create({
-  offsets = ivec.create({ 0, 2 }),
-  neighbors = ivec.create({ 2, 3 }),
-  values = fvec.create({ 1, 1 }),
-})
-local hits = idx.search(q, 10)
+idx.rebuild({ "b", "c", "d" }, csr.create({
+  offsets = ivec.create({ 0, 1, 2, 3 }),
+  neighbors = ivec.create({ 1, 1, 2 }),
+  values = fvec.create({ 1, 1, 1 }),
+}), 2)
+local hits = idx.search(csr.create({
+  offsets = ivec.create({ 0, 1 }),
+  neighbors = ivec.create({ 1 }),
+  values = fvec.create({ 1 }),
+}), 10)
 for i = 1, #hits do
-  print(hits[i].id, hits[i].score)
+  print("hit:", hits[i].id)
 end
-idx.remove({ "a" })
-print("after remove:", #idx.search(q, 10))
 return #hits
+]],
+    },
+
+    {
+      title = "authorizer and progress budget for untrusted SQL",
+      desc = table.concat({
+        "authorizer({ deny = { codes }, pragmas = { names } }) installs a policy: the listed ",
+        "action codes (sqlite.ATTACH and friends) are denied, and so is every pragma not ",
+        "named. authorizer() clears it, and an invalid policy installs deny-all before ",
+        "raising. progress(n, budget) interrupts SQL after budget callbacks of n VM steps ",
+        "each, counted across statements until the next progress call; progress() clears it. ",
+        "query(sql, ...) returns the rows and the column names from a fresh statement. ",
+        "sqlite.complete(sql) reports whether a string ends in a complete statement.",
+      }),
+      code = [[
+local err = require("santoku.error")
+local sqlite = require("santoku.sqlite.db")
+local sql = require("santoku.sqlite")
+local db = sql(sqlite.open_memory())
+db.authorizer({ deny = { sqlite.ATTACH }, pragmas = { "user_version" } })
+print("attach:", (err.pcall(db.exec, "attach database ':memory:' as x")))
+print("user_version:", db.query("pragma user_version")[1][1])
+print("journal_mode:", (err.pcall(db.exec, "pragma journal_mode = wal")))
+db.authorizer()
+db.progress(100, 10)
+print("runaway:", (err.pcall(db.exec,
+  "with recursive c(x) as (select 1 union all select x + 1 from c) select count(*) from c")))
+db.progress()
+print("complete:", sqlite.complete("select 1;"), sqlite.complete("select 1"))
+local rows, names = db.query("select 1 as a, 2 as b")
+print(names[1], names[2], rows[1][1], rows[1][2])
+return "done"
 ]],
     },
 
@@ -561,6 +593,7 @@ return "done"
 local err = require("santoku.error")
 local sqlite = require("santoku.sqlite.db")
 local sql = require("santoku.sqlite")
+local str = require("santoku.string")
 local key = str.rep("\42", 32)
 local db = sql(err.assert(sqlite.open_encrypted("notes.db", key)))
 db.exec("create table if not exists notes (id integer primary key, body text)")
@@ -593,6 +626,7 @@ return "closed, key released"
 local err = require("santoku.error")
 local sqlite = require("santoku.sqlite.db")
 local sql = require("santoku.sqlite")
+local str = require("santoku.string")
 local key_a = str.rep("A", 32)
 local key_b = str.rep("B", 32)
 err.assert(sqlite.key_set("a.db", key_a))
@@ -630,6 +664,7 @@ return "done"
 local err = require("santoku.error")
 local sqlite = require("santoku.sqlite.db")
 local sql = require("santoku.sqlite")
+local str = require("santoku.string")
 local path = "/d-0123abcd.db"
 local key32 = str.rep("\1", 32)
 err.assert(sqlite.key_set(path, key32, "opfs-coop"))

@@ -372,8 +372,8 @@ end
         "build entirely and hands them straight to the runner: -m maps to match, ",
         "-s to stop, and -i is split on whitespace into the interp argv. This is ",
         "the quick loop against an already-built tree, or against no tree at all ",
-        "when the specs only need installed rocks; combined with toku exec it runs ",
-        "inside the project's pinned lua_modules.",
+        "when the specs only need installed rocks. After eval \"$(toku env --tree ",
+        "test)\" it runs inside the project's pinned lua_modules.",
       }),
       runnable = false,
       code = [[
@@ -382,7 +382,8 @@ Test:   test/spec/santoku/fracidx.lua
 
 $ toku test -s -i "luajit -l santoku.trace" test/spec
 
-$ toku exec toku test -m sqlite test/spec
+$ eval "$(toku env --tree test)"
+$ toku test -m sqlite test/spec
 ]],
     },
 

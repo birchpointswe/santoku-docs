@@ -747,10 +747,10 @@ return seen[1]
       lang = "lua",
       code = [[
 local config = require("my-api.config")
-local db = require("my-api.db")(config.db_file, { no_migrate = true })
+local db = require("my_api.db")(config.db_file, { no_migrate = true })
 local sync = require("santoku.sqlite.sync")
 
-package.loaded["my-api.db.loaded"] = db
+package.loaded["my_api.db.loaded"] = db
 package.loaded["my-api.sync.loaded"] = sync.create(db.db, {
   space = "my-api",
   tables = {

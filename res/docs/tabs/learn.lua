@@ -4,12 +4,14 @@ return {
     "santoku-learn is the machine learning toolkit of the framework: C modules built ",
     "on santoku-matrix types (csr sparse features, mtx dense codes, spans) covering ",
     "n-gram tokenization, Aho-Corasick gazetteer matching, booleanization, spectral ",
-    "Nystrom embeddings, ridge regression, calibrated decisions, and ANN retrieval, ",
-    "with optimize.krr tying the whole modelling path together. The front half of ",
+    "Nystrom embeddings, ridge regression, and calibrated decisions, with ",
+    "optimize.krr tying the whole modelling path together. Binary-code retrieval ",
+    "uses santoku-matrix directly: bm25 weighting, spectral codes, mtx:itq, and ",
+    "Hamming top-k. The front half of ",
     "that pipeline runs live on this page: tokenizer, aho, booleanizer, and decide ",
     "ship in the browser bundle as WASM builds, so every ",
     "example up to the in-browser classifier is runnable right here. The back half ",
-    "(spectral, ridge, ann, optimize, and the file-fed dataset, util, and bundle ",
+    "(spectral, ridge, optimize, and the file-fed dataset, util, and bundle ",
     "helpers) is shown for reading: it depends on BLAS/LAPACK or on training corpora ",
     "read from disk. The full pipelines those examples distill live ",
     "in the repo's regression suites (eurlex, newsgroups, imdb, mnist, housing, and ",
@@ -75,7 +77,9 @@ return tok:n_tokens()
       title = "tokenizer.extract: regex to spans",
       desc = table.concat({
         "Run a compiled regex program over a batch of texts and get token spans back as ",
-        "three ivecs (per-doc offsets, starts, ends), ready to wrap in a spans set.",
+        "three ivecs (per-doc offsets, starts, ends), ready to wrap in a spans set. A pattern ",
+        "that fails to match cleanly raises \"extract: pattern match failed (re status N)\" ",
+        "instead of dropping tokens.",
       }),
       code = [[
 local tokenizer = require("santoku.learn.tokenizer")
@@ -118,6 +122,30 @@ print("rows:", (X:shape()))
 print("word ngram vocab:", w:n_tokens())
 local Y = w:tokenize({ texts = texts, tokens = T })
 print("frozen equals fit:", X:eq(Y))
+return w:n_tokens()
+]],
+    },
+
+    {
+      title = "tokenizer.normalize: fold text before word spans",
+      desc = table.concat({
+        "tokenizer.normalize(texts) returns new strings, lowercased, with accents folded and ",
+        "whitespace collapsed. Word spans index into the text they were extracted from, so ",
+        "normalize first, extract from the normalized strings, and fit on those same strings. ",
+        "Accented and plain spellings then share columns.",
+      }),
+      code = [[
+local tokenizer = require("santoku.learn.tokenizer")
+local re = require("santoku.re")
+local spans = require("santoku.spans")
+local norm = tokenizer.normalize({ "Café  NOIR", "cafe noir" })
+print("normalized:", norm[1], norm[2])
+local prog = re.prog("[A-Za-z0-9]+")
+local off, s, e = tokenizer.extract({ n = 2, texts = norm, pattern = prog })
+local T = spans.create({ offsets = off, s = s, e = e })
+local w = tokenizer.create({ ngram_min = 1, ngram_max = 2, mode = "flat", terminals = true })
+w:fit({ texts = norm, tokens = T })
+print("word ngram vocab:", w:n_tokens())
 return w:n_tokens()
 ]],
     },
@@ -412,6 +440,7 @@ return ps:size()
 local tokenizer = require("santoku.learn.tokenizer")
 local decide = require("santoku.learn.decide")
 local fvec = require("santoku.fvec")
+local num = require("santoku.num")
 local train = {
   { text = "the striker scored a late goal", label = 0 },
   { text = "the keeper saved the penalty kick", label = 0 },
@@ -506,34 +535,50 @@ return S:col("id"):size()
     },
 
     {
-      title = "santoku.learn.spectral + ann: embed and retrieve",
+      title = "santoku.learn.spectral: embed and retrieve with binary codes",
       desc = table.concat({
-        "Embed documents with a Nystrom spectral encoder, then retrieve neighbors two ",
-        "ways: exact brute-force topk over the code matrix, and binary-LSH ANN with ",
-        "optional float rerank. The full retrieval suite this distills: ",
-        "https://github.com/birchpointswe/lua-santoku-learn/blob/master/test/spec/santoku/learn/ann.lua",
+        "Weight n-gram features with bm25, embed them with a Nystrom spectral encoder, then ",
+        "fit an ITQ rotation (santoku-matrix mtx:itq) and search the sign bits by exhaustive ",
+        "Hamming top-k. Exact float topk over the codes is the reference. Queries reuse the ",
+        "fitted bm25 statistics, the encoder, the centering means, and the rotation. The full ",
+        "retrieval suite this distills: ",
+        "https://github.com/birchpointswe/lua-santoku-learn/blob/master/test/spec/santoku/learn/retrieval.lua",
       }),
       runnable = false,
       code = [[
 local tokenizer = require("santoku.learn.tokenizer")
 local spectral = require("santoku.learn.spectral")
-local ann = require("santoku.learn.ann")
 local ds = require("santoku.learn.dataset")
+local mtx = require("santoku.mtx")
+local function bits (M)
+  local r, c = M:shape()
+  return mtx.create({ data = M:sign(), n_rows = r, n_cols = c, bits = true })
+end
 local texts = ds.read_imdb("test/res/imdb.50k", 500).problems
 local tok = tokenizer.create({ ngram_min = 4, ngram_max = 4, normalize = true })
 local X = tok:fit({ texts = texts })
-X:idf()
+local w, avgdl = X:bm25()
 X:normalize()
 local _, enc = spectral.encode({ x = X, n_landmarks = 256, kernel = "cosine" })
 local C = enc:encode(X)
 C:normalize("row")
+local mu = C:center()
+C:normalize("row")
+local W = C:itq({ iterations = 30 })
+local B = bits(C:multiply(W))
 print("docs, dims:", C:shape())
-local exact = C:topk(C, 10)
-local idx = ann.create({ codes = C })
-local P = idx:neighborhoods_by_vecs(C, 10, 6)
-print("exact nnz:", exact:nnz())
-print("ann nnz:", P:nnz())
-return P:offsets():size() - 1
+print("exact nnz:", C:topk(C, 10):nnz())
+print("hamming nnz:", B:topk(B, 10):nnz())
+local Y = tok:tokenize({ texts = { texts[1] } })
+Y:bm25(w, avgdl)
+Y:normalize()
+local Q = enc:encode(Y)
+Q:normalize("row")
+Q:center(mu)
+Q:normalize("row")
+local hit = B:topk(bits(Q:multiply(W)), 1)
+print("query finds doc:", hit:neighbors():get(0))
+return hit:nnz()
 ]],
     },
 
@@ -571,6 +616,7 @@ local enc, ridge, deploy, best, decider = optimize.krr({
   kernel = { "cosine" },
   lambda = { def = 0.025 },
   k = 1,
+  decode_offset = { def = 0.49393576 },
   search_trials = 0,
   folds = 5,
 })
@@ -640,6 +686,7 @@ local enc, ridge, deploy, best, decider = optimize.krr({
   gold = pool.gold,
   n_landmarks = 1024 * 8,
   kernel = { "matern" },
+  decode_offset = { def = -0.56368208 },
   search_trials = 0,
   folds = 5,
 })

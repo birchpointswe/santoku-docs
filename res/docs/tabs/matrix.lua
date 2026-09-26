@@ -5,7 +5,7 @@ return {
     "vectors (ivec for i64, dvec for f64, fvec for f32, svec for i32, plus pair ",
     "and byte vectors), dense matrices (mtx), sparse matrices (csr), labelled span ",
     "sets (spans), disk-backed mmap vectors, and C-level hash maps. It sits under ",
-    "santoku-learn and the trigram search engine. ",
+    "santoku-learn and santoku.sqlite.fts. ",
     "A few conventions hold everywhere: storage is zero-copy ",
     "(create adopts the vectors you pass, so mutating one side is visible from the ",
     "other), in-place operations return self so they chain, indices are 0-based ",
@@ -119,7 +119,7 @@ return picked:size()
         "A sorted ivec doubles as an integer set: jaccard, overlap, dice, and tversky similarities, plus ",
         "materialized intersection and union. set_find is a binary search that returns the position on a ",
         "hit and an encoded negative insertion point on a miss, which pairs with set_insert to keep the ",
-        "vector sorted. This is the machinery under trigram search candidate matching.",
+        "vector sorted.",
       }),
       code = [[
 local ivec = require("santoku.ivec")
@@ -359,11 +359,13 @@ return X:nnz()
     {
       title = "csr: feature weighting",
       desc = table.concat({
-        "idf with no argument fits BM25-style idf weights, log((N - df + 0.5) / (df + 0.5)) per column, ",
-        "applies them, and returns them; pass the weights back to apply the same scaling to held-out ",
-        "data. normalize L2-scales each row and materializes f32 values on a binary matrix, and ",
-        "scale_cols multiplies each column by a weight. bns and standardize follow the same fit/apply ",
-        "shape for supervised and z-score weighting.",
+        "bm25 with no weights fits BM25 idf per column, log((N - df + 0.5) / (df + 0.5)) floored at ",
+        "1e-6, and the average row length, rewrites each value to its saturated BM25 weight (k1 = 1.2, ",
+        "b = 0.75 unless passed as bm25(k1, b)), and returns both. Pass them back as bm25(w, avgdl) to ",
+        "weight held-out rows with the fitted statistics; row lengths are measured per row. normalize ",
+        "L2-scales each row and materializes f32 values on a binary matrix, and scale_cols multiplies ",
+        "each column by a weight. bns and standardize follow the same fit and apply pattern for ",
+        "supervised and z-score weighting.",
       }),
       code = [[
 local csr = require("santoku.csr")
@@ -375,15 +377,16 @@ local X = csr.create({
   values = fvec.create({ 1, 1, 1, 1 }),
   n_cols = 2,
 })
-local w = X:idf()
+local w, avgdl = X:bm25()
 print("idf weights:", w:get(0), w:get(1))
+print("average row length:", avgdl)
 local Y = csr.create({
   offsets = ivec.create({ 0, 2 }),
   neighbors = ivec.create({ 0, 1 }),
   values = fvec.create({ 1, 1 }),
   n_cols = 2,
 })
-Y:idf(w)
+Y:bm25(w, avgdl)
 print("applied:", Y:values():get(0), Y:values():get(1))
 local N = csr.create({
   offsets = ivec.create({ 0, 2, 3 }),
@@ -531,7 +534,8 @@ return MA:popcount()
         "corpus:topk(queries, k) scores every corpus row against every query row by dot product (BLAS ",
         "natively, C loops here) and keeps each query's k best with a bounded heap. The result is a ",
         "csr with one row per query, neighbors holding corpus row ids and values holding scores, both ",
-        "ordered by descending score.",
+        "ordered by descending score. On a bits matrix, topk is an exhaustive Hamming search instead: ",
+        "the values are distances, smallest first.",
       }),
       code = [[
 local mtx = require("santoku.mtx")
@@ -551,6 +555,43 @@ print("nnz:", P:nnz())
 print("offsets:", arr.concat(P:offsets():table(), " "))
 print("ids:", arr.concat(P:neighbors():table(), " "))
 print("scores:", arr.concat(P:values():table(), " "))
+return P:nnz()
+]],
+    },
+
+    {
+      title = "mtx: sign bits, ITQ, and Hamming top-k",
+      desc = table.concat({
+        "sign packs an f32 or f64 matrix into a raw sign-bit vector; wrap it with bits = true to get ",
+        "a bits mtx. itq fits a rotation that balances those bits against the float geometry, with a ",
+        "PCA step first when bits is below n_cols. Center and row-normalize the codes before fitting. ",
+        "itq takes iterations (50), bits (n_cols) and rotate (true), and returns W, the loss per ",
+        "iteration, the inner step counts, and the variance fraction PCA kept. topk on the bits mtx ",
+        "then ranks by Hamming distance.",
+      }),
+      code = [[
+local mtx = require("santoku.mtx")
+local fvec = require("santoku.fvec")
+local arr = require("santoku.array")
+local function bits (M)
+  local r, c = M:shape()
+  return mtx.create({ data = M:sign(), n_rows = r, n_cols = c, bits = true })
+end
+local C = mtx.create({
+  data = fvec.create({ 0.9, 0.1, -0.2, 0.8, 0.2, -0.1, -0.7, 0.6, 0.3, -0.8, 0.5, 0.2 }),
+  n_rows = 4, n_cols = 3,
+})
+C:normalize("row")
+C:center()
+C:normalize("row")
+local W, loss, _, kept = C:itq({ iterations = 20 })
+print("W shape:", W:shape())
+print("iterations:", loss:size(), "kept:", kept)
+local B = bits(C:multiply(W))
+print("type:", B:type())
+local P = B:topk(B, 2)
+print("ids:", arr.concat(P:neighbors():table(), " "))
+print("hamming:", arr.concat(P:values():table(), " "))
 return P:nnz()
 ]],
     },
@@ -595,7 +636,7 @@ return Y:nnz()
     },
 
     {
-      title = "a trigram search shape",
+      title = "character trigrams as sorted id sets",
       desc = table.concat({
         "tokenize_raw packs character ",
         "trigrams into sorted unique int64 ids with per-document counts, and each document becomes a ",
@@ -752,9 +793,8 @@ return U:n()
       desc = table.concat({
         "santoku-sqlite's carray virtual table binds a santoku-matrix vector as a table-valued SQL ",
         "input, read zero-copy from the vector's backing store at query time. Mutate the vector and ",
-        "the next execution sees the new contents, no serialization in between. This is how to ",
-        "stream token ids and weights into TF/cosine search statements; the sqlite tab shows the ",
-        "full statement shapes.",
+        "the next execution sees the new contents, no serialization in between. The sqlite tab ",
+        "shows carray joins inside full statements.",
       }),
       code = [[
 local sqlite = require("santoku.sqlite.db")
@@ -785,8 +825,9 @@ return "ok"
         "Every object round-trips to a binary file with persist and a matching load (also on mtx, csr, ",
         "and spans). For arrays bigger than RAM, mmap_create allocates a zeroed file-backed vector, ",
         "mmap_sync flushes, and mmap_open reattaches later; an mmap vector can back an mtx so a large ",
-        "encode writes straight to disk through the out= parameter. Needs a real filesystem, so it is ",
-        "shown for reading.",
+        "encode writes straight to disk through the out= parameter. map (on fvec, dvec and ivec) ",
+        "opens a headerless raw file as a private copy-on-write view, so writes never reach the ",
+        "file. Needs a real filesystem, so it is shown for reading.",
       }),
       runnable = false,
       code = [[
@@ -805,6 +846,38 @@ local r = fvec.mmap_open("big.bin")
 print("first:", r:get(0))
 local M = mtx.create({ data = r, n_rows = 1000, n_cols = 1000 })
 print("disk-backed shape:", M:shape())
+local raw = fvec.map("raw.f32")
+print("mapped:", raw:size())
+return M:shape()
+]],
+    },
+
+    {
+      title = "store: one allocation for many vectors",
+      desc = table.concat({
+        "A store declares typed vectors up front and backs them all with one zeroed allocation ",
+        "at open. With disk = true a native build spills that allocation to an unlinked temp file ",
+        "under TMPDIR (/var/tmp by default), checking free space first; under WebAssembly it stays ",
+        "in RAM. Views stay empty until open, can't grow, and drop to size 0 at close. Declaring ",
+        "after open raises. An mtx can wrap a view, which is how santoku-learn keeps large fold ",
+        "codes and tokenizer output off the heap.",
+      }),
+      runnable = false,
+      code = [[
+local store = require("santoku.store")
+local mtx = require("santoku.mtx")
+local s = store.create({ disk = true })
+local codes = s:fvec(6)
+local ids = s:ivec(2)
+print("before open:", codes:size(), ids:size())
+s:open()
+print("after open:", codes:size(), ids:size())
+print("on disk:", s:on_disk(), "bytes:", s:bytes())
+local M = mtx.create({ data = codes, n_rows = 2, n_cols = 3 })
+codes:set(5, 9)
+print("through mtx:", M:get(1, 2))
+s:close()
+print("after close:", codes:size())
 return M:shape()
 ]],
     },

@@ -193,7 +193,9 @@ return #t
         "that can run without a Lua state, for parallel scanning from C. That tier reads ",
         "structure only: position and named-group captures pass, value and match-time ",
         "captures are rejected. re.check reports acceptance, re.tags returns dense ids ",
-        "for named groups in order of first appearance, and re.pmatch runs the state-free ",
+        "for named groups in order of first appearance. Each named group needs a unique ",
+        "name: re.check returns nil and a message for a reused name, and re.tags raises. ",
+        "re.pmatch runs the state-free ",
         "matcher, returning the match's inclusive end offset and a capture count. Note the ",
         "argument order: pmatch takes (pattern, subject, init), match takes (subject, ",
         "pattern, init).",
@@ -206,6 +208,7 @@ print("value cap:", re.check("{%a+}"))
 print("backref:", re.check("{:g: %a :} =g"))
 local t = re.tags("{:caps: %u+ :} / {:num: %d+ :}")
 print("tags:", t.caps, t.num)
+print("reused name:", re.check("{:w: %a :} {:w: %d :}"))
 print("pmatch:", re.pmatch("%a+", "hello123"))
 print("pmatch init:", re.pmatch("%d+", "ab12", 3))
 return re.pmatch("%a+", "hello123")
@@ -319,8 +322,8 @@ return named:match("ab,cd").second
         "same match. Cmt(p, f) runs f(subject, position, captures...) at match time: nil ",
         "or false fails the match, true keeps the position, a number moves to it, and any ",
         "further returns become captures. Carg(n) pulls the nth extra argument passed to ",
-        "match. Cmt is the one form the parallel tier rejects, so re.check returns false ",
-        "for any pattern built on it.",
+        "match. Cmt is the one form the parallel tier rejects, so re.check returns nil and ",
+        "a message naming the reason for any pattern built on it.",
       }),
       code = [[
 local lpeg = require("santoku.re.core")
@@ -542,7 +545,8 @@ return html
         "through a names table and an optional prefix, ready for html_inject. This is how ",
         "search hit highlighting and entity annotation render from matcher offsets. ",
         "html_spans goes the other way, converting tag records ",
-        "to a santoku.pvec of (s-1, e) pairs for span algebra.",
+        "to a santoku.pvec of (s-1, e) pairs for span algebra. santoku.pvec comes from ",
+        "santoku-matrix, which santoku-lpeg depends on.",
       }),
       code = [[
 local lp = require("santoku.lpeg")
@@ -637,6 +641,7 @@ return parts.body
       }),
       code = [=[
 local strip = require("santoku.lpeg.strip")
+local arr = require("santoku.array")
 local src = arr.concat({
   'local x = 1 -- setup\n',
   '-- whole line\n',
