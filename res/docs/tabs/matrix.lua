@@ -367,7 +367,8 @@ return X:nnz()
         "1e-6, and the average row length, rewrites each value to its saturated BM25 weight (k1 = 1.2, ",
         "b = 0.75 unless passed as bm25(k1, b)), and returns both. Pass them back as bm25(w, avgdl) to ",
         "weight held-out rows with the fitted statistics; row lengths are measured per row. normalize ",
-        "L2-scales each row and materializes f32 values on a binary matrix, and scale_cols multiplies ",
+        "L2-scales each row and materializes f32 values on a binary matrix; normalize(\"max\") divides ",
+        "each row by its largest value instead, leaving rows whose max is 0 or less alone. scale_cols multiplies ",
         "each column by a weight. bns and standardize follow the same fit and apply pattern for ",
         "supervised and z-score weighting.",
       }),
@@ -597,6 +598,37 @@ local P = B:topk(B, 2)
 print("ids:", arr.concat(P:neighbors():table(), " "))
 print("hamming:", arr.concat(P:values():table(), " "))
 return P:nnz()
+]],
+    },
+
+    {
+      title = "csr:dots: score a candidate list with dense codes",
+      desc = table.concat({
+        "dots(Q, D) takes a csr whose neighbors index rows of D and overwrites each stored value ",
+        "with the dot product of that row of Q and that row of D, in place. Q and D are dense mtx of ",
+        "one float type with equal n_cols. This is how a reranker rescores a lexical candidate list: ",
+        "clone the candidates, write the dense scores, bring both lists to one scale with ",
+        "normalize(\"max\"), then blend them with csr.fuse.",
+      }),
+      code = [[
+local csr = require("santoku.csr")
+local mtx = require("santoku.mtx")
+local ivec = require("santoku.ivec")
+local fvec = require("santoku.fvec")
+local arr = require("santoku.array")
+local Q = mtx.create({ data = fvec.create({ 1, 0, 0, 1 }), n_rows = 2, n_cols = 2 })
+local D = mtx.create({ data = fvec.create({ 1, 2, 3, 4, 5, 6 }), n_rows = 3, n_cols = 2 })
+local cand = csr.create({
+  offsets = ivec.create({ 0, 2, 3 }),
+  neighbors = ivec.create({ 2, 0, 1 }),
+  values = fvec.create({ 0.9, 0.4, 0.7 }),
+  n_cols = 3,
+})
+local dense = cand:clone():dots(Q, D)
+print("dense scores:", arr.concat(dense:values():table(), " "))
+dense:normalize("max")
+print("scaled:", arr.concat(dense:values():table(), " "))
+return dense:nnz()
 ]],
     },
 
