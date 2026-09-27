@@ -138,8 +138,8 @@ return {
       test = {
         dependencies = {
           "santoku >= 2.0.6, < 3.0.0",
-          "santoku-make >= 5.1.13, < 6.0.0",
-          "santoku-cli >= 2.14.3, < 3.0.0",
+          "santoku-make >= 5.2.0, < 6.0.0",
+          "santoku-cli >= 2.15.0, < 3.0.0",
           "santoku-fs >= 2.1.3, < 3.0.0",
           "santoku-web >= 2.2.3, < 3.0.0",
           "santoku-http >= 2.0.0, < 3.0.0",
