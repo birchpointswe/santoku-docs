@@ -9,8 +9,8 @@ return {
     "uses santoku-matrix directly: bm25 weighting, spectral codes, mtx:itq, and ",
     "Hamming top-k. The front half of ",
     "that pipeline runs live on this page: tokenizer, aho, booleanizer, and decide ",
-    "ship in the browser bundle as WASM builds, so every ",
-    "example up to the in-browser classifier is runnable right here. The back half ",
+    "ship in the browser bundle as WASM builds, so their examples are runnable ",
+    "right here. The back half ",
     "(spectral, ridge, optimize, and the file-fed dataset, util, and bundle ",
     "helpers) is shown for reading: it depends on BLAS/LAPACK or on training corpora ",
     "read from disk. The full pipelines those examples distill live ",
@@ -424,81 +424,6 @@ for j = 0, ps:size() - 1 do
   print(text:sub(ps:get(j) + 1, pe:get(j)), names[pty:get(j) + 1])
 end
 return ps:size()
-]],
-    },
-
-    {
-      title = "end to end: a text classifier in the browser",
-      desc = table.concat({
-        "The full loop on inline data, running live in this page: hash character ",
-        "n-grams for training texts and queries in one call (shared column ids), ",
-        "L2-normalize each document in plain Lua, score each query by mean cosine ",
-        "similarity to every class, and hand the score matrix to a single-label ",
-        "decider.",
-      }),
-      code = [[
-local tokenizer = require("santoku.learn.tokenizer")
-local decide = require("santoku.learn.decide")
-local fvec = require("santoku.fvec")
-local num = require("santoku.num")
-local train = {
-  { text = "the striker scored a late goal", label = 0 },
-  { text = "the keeper saved the penalty kick", label = 0 },
-  { text = "simmer the garlic in olive oil", label = 1 },
-  { text = "whisk the eggs into the batter", label = 1 },
-}
-local queries = {
-  "the striker scored the winning goal",
-  "simmer the eggs in the pan",
-}
-local names = { "sports", "cooking" }
-local texts = {}
-for i = 1, #train do texts[i] = train[i].text end
-for i = 1, #queries do texts[#train + i] = queries[i] end
-local off, tok, val = tokenizer.tokenize_raw({
-  texts = texts,
-  n_samples = #texts,
-  ngram_min = 3,
-  ngram_max = 4,
-  normalize = true,
-})
-local docs = {}
-for d = 1, #texts do
-  local v, ss = {}, 0
-  for j = off:get(d - 1), off:get(d) - 1 do
-    local c = val:get(j)
-    v[tok:get(j)] = c
-    ss = ss + c * c
-  end
-  local inv = ss > 0 and 1 / num.sqrt(ss) or 0
-  for k, c in pairs(v) do v[k] = c * inv end
-  docs[d] = v
-end
-local n_labels = 2
-local scores = fvec.create(#queries * n_labels)
-for q = 1, #queries do
-  local sums, counts = { 0, 0 }, { 0, 0 }
-  local qv = docs[#train + q]
-  for t = 1, #train do
-    local dot = 0
-    for k, c in pairs(qv) do
-      local tc = docs[t][k]
-      if tc then dot = dot + c * tc end
-    end
-    local l = train[t].label + 1
-    sums[l] = sums[l] + dot
-    counts[l] = counts[l] + 1
-  end
-  for l = 1, n_labels do
-    scores:set((q - 1) * n_labels + (l - 1), sums[l] / counts[l])
-  end
-end
-local g = decide.create({ n_labels = n_labels, single = true })
-local pred = g:predict({ scores = scores, n_samples = #queries })
-for q = 1, #queries do
-  print(queries[q] .. " -> " .. names[pred:get(q - 1) + 1])
-end
-return pred:size()
 ]],
     },
 

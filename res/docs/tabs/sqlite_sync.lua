@@ -500,15 +500,18 @@ return b.row("n1")
         "merging needs the row id and the clock, never the values. The additional ",
         "authenticated data binds each ciphertext to its space, table, row and ",
         "clock value, so a peer cannot move a payload onto another row or replay ",
-        "it under a newer version. Pair it with a real AEAD from ",
-        "santoku-monocypher; the toy codec here just shows the shape and the ",
-        "binding. Note that row identifiers, clocks and tombstones remain visible ",
+        "it under a newer version. The codec here is a santoku-monocypher ",
+        "XChaCha20-Poly1305 key, which takes the additional authenticated data ",
+        "directly. Note that row identifiers, clocks and tombstones remain visible ",
         "as metadata.",
       }),
       code = [[
 local sqlite = require("santoku.sqlite.db")
 local sql = require("santoku.sqlite")
 local sync = require("santoku.sqlite.sync")
+local crypto = require("santoku.monocypher")
+
+local key = crypto.derive_key("demo passphrase", crypto.derive_identity("demo passphrase", 1024, 1))
 
 local function peer ()
   local db = sql(sqlite.open_memory())
@@ -522,12 +525,8 @@ local function peer ()
       return { id = id, title = title }
     end,
     codec = {
-      enc = function (plain, aad) return aad .. "|" .. plain end,
-      dec = function (ct, aad)
-        local got, plain = ct:match("^(.-)|(.*)$")
-        if got ~= aad then return nil, "auth_failed" end
-        return plain
-      end,
+      enc = function (plain, aad) return key:encrypt(plain, aad) end,
+      dec = function (ct, aad) return key:decrypt(ct, aad) end,
     },
   })
   return {
@@ -611,6 +610,9 @@ return s.seq()
 local sqlite = require("santoku.sqlite.db")
 local sql = require("santoku.sqlite")
 local sync = require("santoku.sqlite.sync")
+local crypto = require("santoku.monocypher")
+
+local key = crypto.derive_key("demo passphrase", crypto.derive_identity("demo passphrase", 1024, 1))
 
 local function peer (mode)
   local db = sql(sqlite.open_memory())
@@ -625,12 +627,8 @@ local function peer (mode)
       return { id = id, title = title }
     end,
     codec = {
-      enc = function (plain, ad) return ad .. "|" .. plain end,
-      dec = function (ct, ad)
-        local got, plain = ct:match("^(.-)|(.*)$")
-        if got ~= ad then return nil, "auth_failed" end
-        return plain
-      end,
+      enc = function (plain, ad) return key:encrypt(plain, ad) end,
+      dec = function (ct, ad) return key:decrypt(ct, ad) end,
     },
   })
   return {
@@ -646,9 +644,12 @@ src.add("n2", "perfectly fine")
 
 local dst = peer("quarantine")
 local res = src.sync.respond(dst.sync.request(src.sync.id()))
+local n1, n2
 for _, c in ipairs(res.changes) do
-  if c.rid:find("n1", 1, true) then c.ct = "tampered|garbage" end
+  if c.rid:find("n1", 1, true) then n1 = c end
+  if c.rid:find("n2", 1, true) then n2 = c end
 end
+n1.ct = n2.ct
 
 local stats = dst.sync.apply(res)
 print("applied:", stats.applied, "unreadable:", #stats.unreadable)
@@ -675,7 +676,9 @@ return #stats.unreadable
 local sqlite = require("santoku.sqlite.db")
 local sql = require("santoku.sqlite")
 local sync = require("santoku.sqlite.sync")
+local crypto = require("santoku.monocypher")
 
+local key = crypto.derive_key("demo passphrase", crypto.derive_identity("demo passphrase", 1024, 1))
 local seen = {}
 
 local function peer ()
@@ -695,13 +698,9 @@ local function peer ()
     codec = {
       enc = function (plain, ad)
         seen[#seen + 1] = ad
-        return ad .. "|" .. plain
+        return key:encrypt(plain, ad)
       end,
-      dec = function (ct, ad)
-        local got, plain = ct:match("^(.-)|(.*)$")
-        if got ~= ad then return nil, "auth_failed" end
-        return plain
-      end,
+      dec = function (ct, ad) return key:decrypt(ct, ad) end,
     },
   })
   return {

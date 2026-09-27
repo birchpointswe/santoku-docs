@@ -444,7 +444,9 @@ return unwrapped:bytes() == key:bytes()
       desc = table.concat({
         "Everything together: one passphrase, one Argon2id run, a db subkey, each ",
         "record AEAD-sealed with its own id as AAD so blobs cannot be shuffled, and ",
-        "a signed manifest the server can verify without ever seeing a key.",
+        "a signed manifest the server can verify without ever seeing a key. For ",
+        "stored data, santoku-sqlite's open_encrypted seals a whole database, and ",
+        "santoku.sqlite.sync takes a key like this one as its codec.",
       }),
       code = [[
 local crypto = require("santoku.monocypher")

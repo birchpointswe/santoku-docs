@@ -26,12 +26,16 @@ return {
       desc = table.concat({
         "Vectors are growable typed arrays with 0-based indices. Sorting is in place, table converts to ",
         "a plain Lua table, and every range argument is a half-open [start, end) pair. max and min return ",
-        "both the value and its index; find returns the index of the first match or nil.",
+        "both the value and its index; find returns the index of the first match or nil. clone returns an ",
+        "independent copy, as csr:clone does for sparse matrices.",
       }),
       code = [[
 local ivec = require("santoku.ivec")
 local arr = require("santoku.array")
 local v = ivec.create({ 5, 2, 8, 1, 9 })
+local c = v:clone()
+c:set(0, 50)
+print("clone is independent:", v:get(0), c:get(0))
 v:push(4)
 print("size:", v:size())
 print("sum:", v:sum())
@@ -632,49 +636,6 @@ local R = csr.fuse(A, B, { mode = "rrf", rrf_k = 1 })
 print("rrf ids:", arr.concat(R:neighbors():table(), " "))
 print("rrf scores:", arr.concat(R:values():table(), " "))
 return Y:nnz()
-]],
-    },
-
-    {
-      title = "character trigrams as sorted id sets",
-      desc = table.concat({
-        "tokenize_raw packs character ",
-        "trigrams into sorted unique int64 ids with per-document counts, and each document becomes a ",
-        "one-row csr whose neighbors are the trigram ids (n_cols stays 0 since the id space is the ",
-        "packed ngram space). Because the id vectors are sorted sets, query similarity falls out of ",
-        "set_jaccard directly.",
-      }),
-      code = [[
-local tokenizer = require("santoku.learn.tokenizer")
-local csr = require("santoku.csr")
-local ivec = require("santoku.ivec")
-local function tokenize (text)
-  local _, indices, values = tokenizer.tokenize_raw({
-    texts = { text },
-    n_samples = 1,
-    ngram_min = 3,
-    ngram_max = 3,
-    normalize = true,
-  })
-  return indices, values
-end
-local function one_row_csr (indices, values)
-  return csr.create({
-    offsets = ivec.create({ 0, indices:size() }),
-    neighbors = indices,
-    values = values,
-  })
-end
-local q, qv = tokenize("hello world")
-print("trigrams:", q:size())
-local X = one_row_csr(q, qv)
-print("nnz:", X:nnz())
-local a = tokenize("hello world")
-local b = tokenize("hello there")
-local c = tokenize("completely different")
-print("close:", a:set_jaccard(b))
-print("far:", a:set_jaccard(c))
-return X:nnz()
 ]],
     },
 

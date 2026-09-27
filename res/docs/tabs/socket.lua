@@ -197,52 +197,6 @@ return true
     },
 
     {
-      title = "Polling with backoff",
-      desc = "fetch plus sleep is enough for a hand-rolled retry loop: back off a little more on each failed attempt.",
-      runnable = false,
-      code = [[
-local socket = require("santoku.socket")
-local ok, resp
-for attempt = 1, 3 do
-  ok, resp = socket.fetch("https://api.example.com/status")
-  if ok then
-    break
-  end
-  print("attempt " .. attempt .. " failed, retrying")
-  socket.sleep(250 * attempt)
-end
-print(ok, resp.status)
-return resp.body()
-]],
-    },
-
-    {
-      title = "One deadline, not a timeout per call",
-      desc = "fetch takes no timeout, so bound the sequence instead of the call: fix one deadline up front and check what is left of it before each attempt and before each sleep. That caps how many more attempts you make and how long you wait between them; it cannot interrupt a request already in flight, which is the one thing this module leaves to the transport.",
-      runnable = false,
-      code = [[
-local socket = require("santoku.socket")
-local deadline = os.time() + 60
-local function poll (url)
-  local wait = 250
-  while os.time() < deadline do
-    local ok, resp = socket.fetch(url)
-    if ok then
-      return resp.body()
-    end
-    if os.time() + wait / 1000 >= deadline then
-      break
-    end
-    socket.sleep(wait)
-    wait = wait * 2
-  end
-  return nil, "no response before the deadline"
-end
-return poll("https://api.example.com/status")
-]],
-    },
-
-    {
       title = "A REST wrapper in one function",
       desc = "One function turns method, path, and params into a bearer-authenticated form-encoded request and returns a decoded JSON table or an error string. Because body() returns nil rather than raising on transport failure, the error path can use resp.error or the body without extra guards.",
       runnable = false,
@@ -278,7 +232,7 @@ return session or err
 
     {
       title = "As the backend of santoku-http",
-      desc = "santoku-http expects a backend with fetch, request, and sleep, and prefers request when present, so cancellation flows through. One line adds query params via to_query, request and response hooks, and retry with jittered backoff: by default 3 retries starting at 1000ms with a 3x multiplier, triggered on status 0, 429, 502, 503, and 504.",
+      desc = "santoku-http expects a backend with fetch, request, and sleep, and prefers request when present, so cancellation flows through. One line adds query params via to_query, request and response hooks, and retry with jittered backoff: by default 3 retries starting at 1000ms with a 3x multiplier, triggered on status 0, 429, 502, 503, and 504. Retry and backoff belong there, so don't hand-roll them over fetch. To bound a whole retry sequence, cancel the request: santoku-http checks for cancellation after every backoff sleep.",
       runnable = false,
       code = [[
 local http = require("santoku.http")(require("santoku.socket"))

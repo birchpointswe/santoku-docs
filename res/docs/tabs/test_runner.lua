@@ -22,8 +22,8 @@ return {
         "A spec file is a plain Lua script: require santoku.test, call test(tag, fn) ",
         "for each case, and assert inside. Blocks nest, and the tags accumulate into ",
         "a chain. A passing suite is silent; a failing assertion prints the full tag ",
-        "chain, the error, and a traceback, then exits the process with status 1. ",
-        "There is no registration, no runner ",
+        "chain, the error, and a traceback, then exits the process with status 1, so ",
+        "no test after the first failure runs. There is no registration, no runner ",
         "object, no setup or teardown API: the file just executes top to bottom. This ",
         "spec is real, the base library's fracidx suite: ",
         "https://github.com/birchpointswe/lua-santoku/blob/master/test/spec/santoku/fracidx.lua",
@@ -49,44 +49,6 @@ test("fracidx", function ()
   end)
 
 end)
-]],
-    },
-
-    {
-      title = "The whole harness, inlined and live",
-      desc = table.concat({
-        "This is the entire body of santoku.test, inlined as a local function so ",
-        "it runs in the page: push the tag, xpcall the block, pop the ",
-        "tag. The failure handler joins the tag stack with colons, prints the error ",
-        "and a traceback, and exits. Because exit happens inside the handler, the ",
-        "first failed assertion ends the file: every test after it simply never ",
-        "runs. Edit the assert to false to see the tag chain (but note that in this ",
-        "sandbox os.exit ends the interpreter).",
-      }),
-      code = [[
-local arr = require("santoku.array")
-local tags = {}
-local function test (tag, fn)
-  arr.push(tags, tag)
-  xpcall(fn, function (...)
-    print()
-    print(arr.concat(arr.interleaved(tags, ": ")))
-    print()
-    print((...))
-    print(debug.traceback())
-    print()
-    os.exit(1)
-  end)
-  arr.pop(tags)
-end
-test("outer", function ()
-  print("chain so far:", arr.concat(tags, " > "))
-  test("inner", function ()
-    print("chain so far:", arr.concat(tags, " > "))
-    assert(1 + 1 == 2)
-  end)
-end)
-return "suite passed"
 ]],
     },
 

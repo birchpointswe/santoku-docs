@@ -213,24 +213,14 @@ return arr.concat(names, ", ")
 
     {
       title = "How toku expands a .tk file",
-      desc = "Any file with .tk in its name is templated and the .tk stripped from the destination (rules.copy, rules.exclude, and rules.template override the default); the harness renders against the project env plus a dep-recording readfile and depend, then writes the output and a one-line .d rule beside it.",
+      desc = "Any file with .tk in its name is templated and the .tk stripped from the destination (rules.copy, rules.exclude, and rules.template override the default); the harness renders against the project env plus a dep-recording readfile and depend, then writes the output and a one-line .d rule beside it. That step is add_file_target in santoku.make.common; at its core is one renderfile call.",
       runnable = false,
       code = [[
 local template = require("santoku.template")
 local fs = require("santoku.fs")
-local deps = {}
-local env = {
-  client = { verbose = false },
-  readfile = function (fp)
-    deps[fp] = true
-    return fs.readfile(fp)
-  end,
-}
+local env = { client = { verbose = false }, readfile = fs.readfile }
 local out = template.renderfile("client/lib/tasks/main.tk.lua", env, _G)
 fs.writefile("client/lib/tasks/main.lua", out)
-fs.writefile("client/lib/tasks/main.lua.d",
-  template.serialize_deps("client/lib/tasks/main.tk.lua", "client/lib/tasks/main.lua", deps))
-print("wrote main.lua and its dependency rule")
 ]],
     },
 
@@ -269,24 +259,21 @@ print("wrote main.lua and its dependency rule")
 
     {
       title = "Templating a PWA index.html",
-      desc = "A static/index.tk.html builds the page with the santoku.web.pwa helpers: hashed asset links, the shared index builder over client.pwa config, and a CSP meta tag computed from the finished markup's script hashes.",
+      desc = "A static/index.tk.html builds the page with the santoku.web.pwa helpers: hashed asset links and the shared index builder over client.pwa config. csp = true has index compute a CSP meta tag from the finished markup's script hashes; the santoku-web tab covers the builder's options.",
       runnable = false,
       code = [[
 <%
   local tbl = require("santoku.table")
-  local str = require("santoku.string")
   local index = require("santoku.web.pwa.index")
-  local csp = require("santoku.web.pwa.csp")
-  local html = index(tbl.merge({
+  return index(tbl.merge({
     manifest = "/" .. hashed("manifest.json"),
     favicon_svg = "/" .. hashed("favicon.svg"),
   }, client.pwa, {
     title = "Example App",
     sw = "/sw.js",
     head = '<link rel="stylesheet" href="/' .. hashed("index.css") .. '">',
+    csp = true,
   }))
-  local meta = csp.meta(csp.script_hashes(html))
-  return (str.gsub(html, "<head>", function () return "<head>\n" .. meta end, 1))
 %>
 ]],
     },

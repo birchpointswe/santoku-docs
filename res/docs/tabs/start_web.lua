@@ -13,7 +13,7 @@ return {
     "project before changing anything. ",
     "The example project is called my-app. ",
     "What it scaffolds is a working todo app with a client-side SQLite database, tag ",
-    "parsing, JSON export and a real sync endpoint, in eighteen files.",
+    "parsing, JSON export and a real sync endpoint, in nineteen files.",
   }),
 
   examples = {
@@ -205,6 +205,7 @@ my-app/res/client/migrations/0.0.3.sql
 my-app/res/server/migrations/0.0.1.sql
 my-app/server/lib/my-app/db.tk.lua
 my-app/server/lib/my-app/web/init.lua
+my-app/server/lib/my-app/web/init_worker.lua
 my-app/server/lib/my-app/web/sync.lua
 my-app/server/nginx.tk.conf
 my-app/server/test/spec/my-app.lua
