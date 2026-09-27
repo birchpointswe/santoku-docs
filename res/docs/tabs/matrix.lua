@@ -672,6 +672,140 @@ return Y:nnz()
     },
 
     {
+      title = "csr:topk: sparse retrieval through a term index",
+      desc = table.concat({
+        "docs:topk(Q, k) scores every query row against every document row by sparse dot product ",
+        "and keeps each query's k best. It builds a term-to-document index from the document csr ",
+        "once, so a query only visits documents that share a term with it. The result has one row ",
+        "per query, neighbors holding document row ids and values holding scores, best first; ",
+        "n_cols is the document count. Weight the documents with bm25 and pass query term weights ",
+        "as the query values to rank the way BM25 does.",
+      }),
+      code = [[
+local csr = require("santoku.csr")
+local ivec = require("santoku.ivec")
+local fvec = require("santoku.fvec")
+local arr = require("santoku.array")
+local docs = csr.create({
+  offsets = ivec.create({ 0, 2, 3, 4 }),
+  neighbors = ivec.create({ 0, 1, 1, 0 }),
+  values = fvec.create({ 1, 2, 1, 3 }),
+  n_cols = 2,
+})
+local Q = csr.create({
+  offsets = ivec.create({ 0, 1, 2 }),
+  neighbors = ivec.create({ 0, 1 }),
+  values = fvec.create({ 1, 2 }),
+  n_cols = 2,
+})
+local P = docs:topk(Q, 2)
+print("offsets:", arr.concat(P:offsets():table(), " "))
+print("ids:", arr.concat(P:neighbors():table(), " "))
+print("scores:", arr.concat(P:values():table(), " "))
+return P:nnz()
+]],
+    },
+
+    {
+      title = "ranking metrics and a paired test",
+      desc = table.concat({
+        "ndcg, recall and mrr score a ranked csr (rows best first, as topk and fuse return them) ",
+        "against a judgment csr whose values are relevance grades; a grade above 0 counts as ",
+        "relevant. Each takes k and returns a dvec with one score per judgment row, then the mean ",
+        "over rows that have at least one relevant id. ndcg uses linear gains and a log2 discount. ",
+        "To compare two systems, a:paired_test(b, iters, seed) on their per-row scores returns the ",
+        "mean of b - a and a two-sided sign-flip p-value (defaults 10000 and 1). It seeds its own ",
+        "generator, so the same seed gives the same p.",
+      }),
+      code = [[
+local csr = require("santoku.csr")
+local ivec = require("santoku.ivec")
+local fvec = require("santoku.fvec")
+local qrels = csr.create({
+  offsets = ivec.create({ 0, 2, 3 }),
+  neighbors = ivec.create({ 3, 9, 7 }),
+  values = fvec.create({ 2, 1, 1 }),
+  n_cols = 10,
+})
+local base = csr.create({
+  offsets = ivec.create({ 0, 3, 5 }),
+  neighbors = ivec.create({ 5, 3, 9, 1, 7 }),
+  values = fvec.create({ 3, 2, 1, 2, 1 }),
+  n_cols = 10,
+})
+local tuned = csr.create({
+  offsets = ivec.create({ 0, 3, 5 }),
+  neighbors = ivec.create({ 3, 9, 5, 7, 1 }),
+  values = fvec.create({ 3, 2, 1, 2, 1 }),
+  n_cols = 10,
+})
+local a, am = base:ndcg(qrels, 3)
+local b, bm = tuned:ndcg(qrels, 3)
+print("ndcg@3:", am, bm)
+local _, rm = tuned:recall(qrels, 1)
+local _, mm = base:mrr(qrels, 3)
+print("tuned recall@1:", rm, "base mrr@3:", mm)
+local delta, p = a:paired_test(b, 1000, 1)
+print("delta:", delta, "p:", p)
+return delta
+]],
+    },
+
+    {
+      title = "comparing two rankings: spearman and overlap",
+      desc = table.concat({
+        "A:spearman(B) takes two csrs with the same sparsity pattern, such as one candidate list ",
+        "scored two ways, and returns a dvec with each row's Spearman rank correlation of the two ",
+        "scores, ties taking average ranks; a row with fewer than two entries, or constant scores, ",
+        "gives 0. A:overlap(B, k) returns, per row, the share of each side's k highest-scoring ids ",
+        "that the other side also keeps.",
+      }),
+      code = [[
+local csr = require("santoku.csr")
+local ivec = require("santoku.ivec")
+local fvec = require("santoku.fvec")
+local cand = csr.create({
+  offsets = ivec.create({ 0, 4 }),
+  neighbors = ivec.create({ 10, 20, 30, 40 }),
+  values = fvec.create({ 0.9, 0.7, 0.4, 0.1 }),
+  n_cols = 50,
+})
+local rescored = cand:clone()
+rescored:values():set(0, 0.2)
+print("spearman:", cand:spearman(rescored):get(0))
+print("top-2 overlap:", cand:overlap(rescored, 2):get(0))
+return cand:overlap(rescored, 2):get(0)
+]],
+    },
+
+    {
+      title = "csr:unique_cols: compact a sparse id space",
+      desc = table.concat({
+        "unique_cols returns the distinct neighbor ids in first-seen order as an ivec, plus a copy ",
+        "of the csr whose neighbors are positions in that ivec and whose n_cols is its length. Use ",
+        "it to gather only the rows a candidate list touches from a larger matrix; ids:get(p) maps ",
+        "a position back to the original id.",
+      }),
+      code = [[
+local csr = require("santoku.csr")
+local ivec = require("santoku.ivec")
+local fvec = require("santoku.fvec")
+local arr = require("santoku.array")
+local cand = csr.create({
+  offsets = ivec.create({ 0, 2, 4 }),
+  neighbors = ivec.create({ 700, 300, 700, 900 }),
+  values = fvec.create({ 1, 2, 3, 4 }),
+  n_cols = 1000,
+})
+local ids, compact = cand:unique_cols()
+print("ids:", arr.concat(ids:table(), " "))
+print("positions:", arr.concat(compact:neighbors():table(), " "))
+print("n_cols:", select(2, compact:shape()))
+return ids:size()
+]],
+    },
+
+    {
       title = "spans: labelled intervals per document",
       desc = table.concat({
         "spans stores per-document records with named integer columns, csr-style offsets marking ",

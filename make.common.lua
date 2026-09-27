@@ -95,7 +95,7 @@ return {
         "santoku-web >= 2.2.3, < 3.0.0",
         "santoku-fs >= 2.0.0, < 3.0.0",
         "santoku-lpeg >= 2.2.1, < 3.0.0",
-        "santoku-matrix >= 2.4.0, < 3.0.0",
+        "santoku-matrix >= 2.5.0, < 3.0.0",
         "santoku-sqlite >= 4.0.9, < 5.0.0",
         "santoku-sqlite-migrate >= 2.0.0, < 3.0.0",
         "santoku-learn >= 3.2.0, < 4.0.0",
