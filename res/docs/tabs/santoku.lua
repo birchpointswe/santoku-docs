@@ -282,6 +282,25 @@ return str.to_query({ sort = "asc" })
     },
 
     {
+      title = "santoku.string: natural sort order",
+      desc = table.concat({
+        "compare_natural(a, b) is a less-than for arr.sort that ignores case and ",
+        "compares each run of digits by its numeric value, so item 2 sorts before ",
+        "item 10 and v1.2 before v1.10. When two digit runs have the same value, ",
+        "the shorter run sorts first, so x9 comes before x09. Case folding is ",
+        "ASCII only; accented letters compare by their bytes.",
+      }),
+      code = [[
+local str = require("santoku.string")
+local arr = require("santoku.array")
+local names = { "item 10", "Item 2", "item 1", "v1.10", "v1.2", "x09", "x9" }
+arr.sort(names, str.compare_natural)
+print(arr.concat(names, ", "))
+return names[1]
+]],
+    },
+
+    {
       title = "santoku.table: paths into nested tables",
       desc = table.concat({
         "get, set, and update address deep keys as a path array, creating ",
