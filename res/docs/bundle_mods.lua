@@ -22,6 +22,7 @@ return {
   "santoku.ivec",
   "santoku.dvec",
   "santoku.fvec",
+  "santoku.cvec",
   "santoku.spans",
   "santoku.learn.tokenizer",
   "santoku.learn.aho",

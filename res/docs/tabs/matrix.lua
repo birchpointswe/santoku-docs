@@ -515,6 +515,7 @@ return X:nnz()
 local csr = require("santoku.csr")
 local ivec = require("santoku.ivec")
 local arr = require("santoku.array")
+require("santoku.cvec")
 local A = csr.create({
   offsets = ivec.create({ 0, 2, 3 }),
   neighbors = ivec.create({ 0, 2, 1 }),
@@ -583,6 +584,7 @@ return P:nnz()
 local mtx = require("santoku.mtx")
 local fvec = require("santoku.fvec")
 local arr = require("santoku.array")
+require("santoku.cvec")
 local C = mtx.create({
   data = fvec.create({
     0.9, 0.1, -0.2, 0.3,
