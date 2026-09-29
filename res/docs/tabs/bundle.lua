@@ -81,6 +81,7 @@ return require("demo.app")
         "skips comments and strings.",
       }),
       code = [[
+local arr = require("santoku.array")
 local src = arr.concat({
   "local arr = require(\"santoku.array\")",
   "local str = require \"santoku.string\"",

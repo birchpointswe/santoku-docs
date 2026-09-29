@@ -198,6 +198,7 @@ return arr.concat(str.splits("path/to/some/file.lua", "/"), " > ")
       }),
       code = [[
 local str = require("santoku.string")
+local num = require("santoku.num")
 print(str.interp("Hello %who, %adj to meet you!", {
   who = "World",
   adj = "nice",
@@ -537,10 +538,10 @@ print("elapsed:", duration, total)
         "only when you want a reproducible run. alnum draws from the 62 ASCII ",
         "alphanumerics, while str draws from a raw byte range and will include ",
         "punctuation. C extensions that include <santoku/lua/utils.h> and call ",
-        "tk_fast_random directly are a separate case: that generator is thread local ",
-        "and starts from a fixed constant, so seed it once with ",
-        "tk_fast_seed(tk_fast_entropy()) in your luaopen, or every process will ",
-        "produce the same sequence.",
+        "tk_fast_random directly get their own thread-local generator per shared ",
+        "object, which seeds itself from clock entropy on first use. fast_seed seeds ",
+        "only santoku.random's copy, so a reproducible run also calls tk_fast_seed ",
+        "in each such extension.",
       }),
       code = [[
 local random = require("santoku.random")
@@ -592,9 +593,11 @@ end)
       title = "santoku.serialize: tables to Lua source",
       desc = table.concat({
         "Calling the module serializes any value, tables included, to Lua ",
-        "source that round-trips through loadstring; requiring ",
-        "santoku.autoserialize patches print so every printed table shows its ",
-        "contents instead of an address.",
+        "source that round-trips through loadstring. Requiring ",
+        "santoku.autoserialize patches the global print so every printed table ",
+        "shows its contents instead of an address; toku lua --serialize loads it ",
+        "for you. This page runs each example with its own print, so the patch ",
+        "is shown for reading only.",
       }),
       code = [[
 local serialize = require("santoku.serialize")
@@ -606,8 +609,7 @@ local src = serialize({
 print(src)
 local restored = loadstring("return " .. src)()
 print("round trip:", restored.name, restored.tags[2])
-require("santoku.autoserialize")
-print({ now = { tables = "print readably" } })
+return restored.name
 ]],
     },
 

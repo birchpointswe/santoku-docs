@@ -4,12 +4,11 @@ return {
     "santoku-markdown is the framework's Markdown renderer: a C binding to Sundown ",
     "that exposes a single function, to_html, taking a Markdown string and returning ",
     "the rendered HTML string. The binding constructs Sundown's standard HTML renderer ",
-    "with every extension flag and every render flag set to zero and a block nesting ",
-    "depth of 16, so it renders base Markdown only: ATX and setext headings, ",
-    "paragraphs, lists, blockquotes, indented code, emphasis, links, images, ",
-    "angle-bracket autolinks, backslash escapes, and raw HTML passthrough, with the ",
-    "Sundown extras (tables, fenced code, bare-URL autolinking, strikethrough, ",
-    "superscript) deliberately off. Output is plain HTML, not XHTML: hr and br render ",
+    "with every render flag set to zero and a block nesting depth of 16. On top of base ",
+    "Markdown (ATX and setext headings, paragraphs, lists, blockquotes, code, emphasis, ",
+    "links, images, backslash escapes and raw HTML passthrough) it enables the Sundown ",
+    "extensions tables, fenced_code, autolink, strikethrough, no_intra_emphasis and ",
+    "space_headers. superscript and lax_spacing stay off. Output is plain HTML: hr and br render ",
     "without the self-closing slash. It compiles both natively and to WebAssembly, so ",
     "the same call renders on the server and in the browser; this docs site renders ",
     "its own prose through it at build time.",
@@ -37,11 +36,11 @@ return #html
 
     {
       title = "Headings, three ways",
-      desc = "ATX hashes give h1 through h6, and the space after the hashes is optional because Sundown's space_headers extension is off. Trailing hashes and spaces are stripped. Setext underlines with equals or dashes give h1 and h2.",
+      desc = "ATX hashes give h1 through h6. The space_headers extension is on, so a heading needs a space after its hashes, and #tag stays paragraph text. Trailing hashes and spaces are stripped. Setext underlines with equals or dashes give h1 and h2.",
       code = [[
 local md = require("santoku.markdown")
 print(md.to_html("# one\n## two\n### three\n###### six"))
-print(md.to_html("#no space needed"))
+print(md.to_html("#tag stays text"))
 print(md.to_html("## closed style ##"))
 return md.to_html("Top\n===\n\nSection\n-------")
 ]],
@@ -60,12 +59,12 @@ return md.to_html("plain text")
 
     {
       title = "Emphasis in detail",
-      desc = "Asterisks and underscores are interchangeable, tripling nests strong and em, and because the no_intra_emphasis extension is off, underscores inside words emphasize too: snake_case identifiers need escaping or code spans.",
+      desc = "Asterisks and underscores are interchangeable, and tripling nests strong and em. The no_intra_emphasis extension is on, so underscores inside a word never emphasize and snake_case identifiers survive as plain text.",
       code = [[
 local md = require("santoku.markdown")
 print(md.to_html("*star* _underscore_ **bold** __also bold__"))
 print(md.to_html("***both at once***"))
-print(md.to_html("a snake_case_name gets chewed up"))
+print(md.to_html("a snake_case_name stays intact"))
 return md.to_html("`snake_case_name` survives in a code span")
 ]],
     },
@@ -156,13 +155,13 @@ return md.to_html("![plain alt](icons/knife.svg)")
     },
 
     {
-      title = "Autolinks need angle brackets",
-      desc = "Wrapping a URL or email in angle brackets links it, and emails gain a mailto: prefix. Bare URLs stay plain text because the autolink extension is off.",
+      title = "Autolinks: angle brackets and bare URLs",
+      desc = "Wrapping a URL or email in angle brackets links it, and emails gain a mailto: prefix. The autolink extension is on, so a bare URL links too.",
       code = [[
 local md = require("santoku.markdown")
 print(md.to_html("go to <https://example.com> now"))
 print(md.to_html("mail <user@example.com> about it"))
-return md.to_html("bare https://example.com stays text")
+return md.to_html("bare https://example.com links too")
 ]],
     },
 
@@ -211,13 +210,13 @@ return md.to_html("<div class=\"note\">\nA whole block, kept <em>as is</em>.\n</
     },
 
     {
-      title = "With the extensions off",
-      desc = "Fenced code, pipe tables, and strikethrough are Sundown extensions this binding does not enable, so their syntax renders as ordinary text. Indented code blocks are the supported form.",
+      title = "Fenced code, pipe tables and strikethrough",
+      desc = "The binding enables the fenced_code, tables and strikethrough extensions: triple backticks open a code block, pipe rows with a dashed separator render a table, and double tildes render del. Indented code blocks still work.",
       code = [[
 local md = require("santoku.markdown")
-print(md.to_html("```\nnot a code block\n```"))
+print(md.to_html("```\na code block\n```"))
 print(md.to_html("| a | b |\n|---|---|\n| 1 | 2 |"))
-return md.to_html("~~not struck~~")
+return md.to_html("~~struck~~")
 ]],
     },
 

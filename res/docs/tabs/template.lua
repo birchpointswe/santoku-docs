@@ -48,7 +48,7 @@ return tostring(via_render == via_compile)
 local template = require("santoku.template")
 local arr = require("santoku.array")
 print(template.render("<% return tostring(#word) %>", { word = "loud" }, _G))
-return template.render("<% return arr.concat(names, ', ') %>", { names = { "ada", "grace" } }, _G)
+return template.render("<% return arr.concat(names, ', ') %>", { arr = arr, names = { "ada", "grace" } }, _G)
 ]],
     },
 

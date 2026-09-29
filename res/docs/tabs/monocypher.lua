@@ -313,11 +313,11 @@ return crypto.const_eq(mac, crypto.hmac_sha256("server-pepper", "user@example.co
       desc = table.concat({
         "The Stripe-style webhook check is three lines: recompute the HMAC over ",
         "timestamp.payload with the endpoint secret and compare with const_eq. The ",
-        "same shape works for ",
-        "any HMAC-signed callback.",
+        "same check works for any HMAC-signed callback.",
       }),
       code = [[
 local crypto = require("santoku.monocypher")
+local str = require("santoku.string")
 local whsec = "whsec_demo_secret"
 local payload = '1724000000.{"id":"evt_1","type":"invoice.paid"}'
 local signature = crypto.hmac_sha256(whsec, payload)
@@ -342,6 +342,8 @@ return verify(signature, payload)
       code = [[
 local crypto = require("santoku.monocypher")
 local arr = require("santoku.array")
+local str = require("santoku.string")
+local num = require("santoku.num")
 local function totp (key, now, period, digits)
   local counter = num.floor(now / period)
   local msg = {}
@@ -350,8 +352,8 @@ local function totp (key, now, period, digits)
     counter = num.floor(counter / 256)
   end
   local hex = crypto.hmac_sha1(key, arr.concat(msg))
-  local offset = tonumber(hex:sub(40, 40), 16)
-  local v = tonumber(hex:sub(offset * 2 + 1, offset * 2 + 8), 16) % 0x80000000
+  local offset = tonumber(str.sub(hex, 40, 40), 16)
+  local v = tonumber(str.sub(hex, offset * 2 + 1, offset * 2 + 8), 16) % 0x80000000
   local code = tostring(num.floor(v % 10 ^ digits))
   while #code < digits do code = "0" .. code end
   return code
@@ -425,6 +427,7 @@ return key2:export()
       }),
       code = [[
 local crypto = require("santoku.monocypher")
+local str = require("santoku.string")
 local id = crypto.derive_identity("secret one", 1024, 1)
 local key = crypto.derive_key("secret one", id)
 local wrap = str.rep(str.char(0x42), 32)

@@ -36,7 +36,6 @@ return {
   "santoku.random",
   "santoku.async",
   "santoku.serialize",
-  "santoku.autoserialize",
   "santoku.co",
   "santoku.inherit",
   "santoku.geo",
