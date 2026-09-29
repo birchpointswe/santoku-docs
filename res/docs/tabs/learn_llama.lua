@@ -7,9 +7,10 @@ return {
     "vectorizer path), and provide a minimal text-generation entry point. The entire ",
     "surface is three constructors (create, embedder, generator) and five methods ",
     "across two object types; the modelling that consumes the embeddings lives in ",
-    "santoku-learn. The binding links a statically built llama.cpp (vendored at a ",
-    "pinned commit) with OpenMP and BLAS/LAPACK, and needs a gguf model file at ",
-    "runtime, so nothing on this page can run in the browser: every example is ",
+    "santoku-learn, including the retrieval rerank. The binding links a statically ",
+    "built llama.cpp (vendored at a pinned commit) with OpenMP and BLAS/LAPACK, and ",
+    "needs a gguf model file at runtime. This page doesn't ship models, and nothing ",
+    "on it can run in the browser: every example is ",
     "display-only, mirrored from the repo's regress ",
     "suites. The full pipelines live in those suites: ",
     "https://github.com/birchpointswe/lua-santoku-learn-llama/tree/master/test/spec/santoku/learn/regress ",
@@ -87,10 +88,16 @@ print("written in place:", out:size())
     {
       title = "dense codes for the learn pipeline",
       desc = table.concat({
-        "The embeddings stand in for santoku-learn's sparse n-gram codes: encode each ",
-        "split, wrap the fvec in an mtx, and hand it to optimize.krr. Free each code ",
-        "matrix once consumed; the encoded splits are the memory ceiling. Distilled ",
-        "from the 20-newsgroups regress suite: ",
+        "The embeddings stand in for santoku-learn's sparse n-gram codes. encode returns ",
+        "an fvec, so wrap it in an mtx (n_rows is the split size, n_cols is dims()) and ",
+        "pass it as pool_codes; the sparse tokenizer path doesn't apply. optimize.krr ",
+        "cross-validates over folds, so there's no validation split to encode. It ",
+        "returns the Nystrom encoder, the ridge, a deploy function wrapping the ",
+        "encoder, the best parameters, and the calibrated decider. To predict, push the ",
+        "encoded test split through the encoder, then ridge:regress for dense scores or ",
+        "ridge:label for a top-k csr, and score with the decider. Free each code matrix ",
+        "once consumed: the encoded splits are the memory ceiling. Distilled from the ",
+        "20-newsgroups regress suite: ",
         "https://github.com/birchpointswe/lua-santoku-learn-llama/blob/master/test/spec/santoku/learn/regress/newsgroups-llama.lua",
       }),
       runnable = false,
@@ -130,25 +137,22 @@ local _, metrics = decider:score({
       title = "sentence pairs: one string per sample",
       desc = table.concat({
         "The model sees exactly one string per sample, so pair tasks (NLI, duplicate ",
-        "detection) concatenate the two sides into a single text before encoding; the ",
-        "resulting fvec flows into the ridge pipeline unchanged. Pattern from the SNLI ",
-        "walkthrough in ",
-        "https://github.com/birchpointswe/lua-santoku-learn-llama/blob/master/doc/usage.md",
+        "detection) concatenate the two sides into a single text before encoding. The ",
+        "resulting fvec flows into optimize.krr unchanged. No regress suite covers a ",
+        "pair dataset yet.",
       }),
       runnable = false,
       code = [[
 local llama = require("santoku.learn.llama")
 local enc = llama.create(model_path)
-local function pair_texts (split)
+local function pair_texts (lefts, rights, n)
   local texts = {}
-  for i = 1, split.n do
-    local a = split.unique_texts[split.idx1:get(i - 1) + 1]
-    local b = split.unique_texts[split.idx2:get(i - 1) + 1]
-    texts[i] = a .. "\n" .. b
+  for i = 1, n do
+    texts[i] = lefts[i] .. "\n" .. rights[i]
   end
   return texts
 end
-local train_codes = enc:encode(pair_texts(train))
+local train_codes = enc:encode(pair_texts(lefts, rights, #lefts))
 ]],
     },
 
@@ -157,8 +161,10 @@ local train_codes = enc:encode(pair_texts(train))
       desc = table.concat({
         "For thousands of labels the embedder's role is unchanged: produce the dense ",
         "codes. The eurlex57k regress suite drives optimize.krr with a Matern kernel ",
-        "and k = 256, then labels the test split through the deploy encoder. The full ",
-        "pipeline: ",
+        "and k = 256, labels the test split through the deploy encoder, and the decider ",
+        "applies a calibrated threshold over the ranked labels. With search_trials = 0 ",
+        "a multi-label run needs a pinned decode_offset, and krr raises without one. ",
+        "The full pipeline: ",
         "https://github.com/birchpointswe/lua-santoku-learn-llama/blob/master/test/spec/santoku/learn/regress/eurlex-llama.lua",
       }),
       runnable = false,
@@ -179,6 +185,7 @@ local _, ridge_obj, deploy, best, decider = optimize.krr({
   nu = { def = 3 },
   gamma = { def = 1.10565 },
   lambda = { def = 5.23323e-06 },
+  decode_offset = { def = 0.32429025 },
   n_landmarks = 1024 * 8,
   k = 256,
   search_trials = 0,
@@ -186,6 +193,7 @@ local _, ridge_obj, deploy, best, decider = optimize.krr({
 local test_codes = enc:encode(collect_texts(test_set.text_iter, test_set.n))
 test_codes = mtx.create({ n_rows = test_set.n, n_cols = n_dims, data = test_codes })
 local P = ridge_obj:label(deploy(test_codes), 256)
+local _, m = decider:score({ pred = P, expected = test_set.labels, n_samples = test_set.n })
 ]],
     },
 
@@ -213,6 +221,46 @@ local query_emb = enc:encode({ query_prefix .. "cozy fantasy debut" }, true)
 local Mc = mtx.create({ data = codes, n_rows = ids:size(), n_cols = d })
 local Mq = mtx.create({ data = query_emb, n_rows = 1, n_cols = d })
 local hits = Mc:topk(Mq, 10)
+]],
+    },
+
+    {
+      title = "retrieval: rerank bm25 candidates with embeddings",
+      desc = table.concat({
+        "Take the top 100 bm25 candidates per query, then reorder them with ",
+        "santoku-learn's retrieval.rerank, which blends the lexical score with the ",
+        "embedding dot product. retrieval.bm25_ranker scores like the santoku_bm25 ",
+        "function that santoku.sqlite.fts serves. Queries get the search prefix the model card ",
+        "gives (bge-small-en-v1.5 in the suite) and documents get none. ",
+        "optimize.retrieval returns the default alpha of 0.96 when search_trials is 0. ",
+        "The learn tab's retrieval cards cover the module. The suite reads the model ",
+        "path from LLAMA_RETRIEVAL_MODEL: ",
+        "https://github.com/birchpointswe/lua-santoku-learn-llama/blob/master/test/spec/santoku/learn/regress/scifact-llama.lua",
+      }),
+      runnable = false,
+      code = [[
+local llama = require("santoku.learn.llama")
+local ds = require("santoku.learn.dataset")
+local retrieval = require("santoku.learn.retrieval")
+local optimize = require("santoku.learn.optimize")
+local mtx = require("santoku.mtx")
+local env = require("santoku.env")
+local prefix = "Represent this sentence for searching relevant passages: "
+local d = ds.read_beir("test/res/scifact", "test")
+local X, Q = retrieval.lexical({ corpus_texts = d.corpus_texts, query_texts = d.query_texts })
+local R = retrieval.bm25_ranker(X, Q)(1.2, 0.75, 100)
+local enc = llama.create(env.var("LLAMA_RETRIEVAL_MODEL"))
+local dim = enc:dims()
+local qtexts = {}
+for i = 1, d.n_queries do qtexts[i] = prefix .. d.query_texts[i] end
+local D = mtx.create({ data = enc:encode(d.corpus_texts), n_rows = d.n_corpus, n_cols = dim })
+local Qc = mtx.create({ data = enc:encode(qtexts), n_rows = d.n_queries, n_cols = dim })
+local best = optimize.retrieval({ datasets = { {
+  name = "scifact", candidates = R, qrels = d.qrels, query_codes = Qc, doc_codes = D,
+} } })
+local R1 = retrieval.rerank({ candidates = R, query_codes = Qc, doc_codes = D, alpha = best.alpha })
+local _, ndcg = R1:ndcg(d.qrels, 10)
+print("alpha:", best.alpha, "ndcg@10:", ndcg)
 ]],
     },
 
@@ -246,23 +294,25 @@ print("completion:", out)
       desc = table.concat({
         "Construct with template = \"llama3\" or \"chatml\" and chat() builds the ",
         "prompt from system (optional), user (required), and assistant_prefix ",
-        "(optional) fields. Without a template chat() raises; use generate() for raw ",
-        "prompts. create(path, { mode = \"generate\", ... }) is the dispatching form ",
-        "of the same constructor.",
+        "(optional) fields. The default template is \"raw\", and chat() raises on it; ",
+        "use generate() for raw prompts. create(path, { mode = \"generate\", ... }) is ",
+        "the dispatching form of the same constructor. Both forms also take n_threads ",
+        "and seed.",
       }),
       runnable = false,
       code = [[
 local llama = require("santoku.learn.llama")
+local err = require("santoku.error")
 local g = llama.generator(model_path, { n_ctx = 2048, template = "llama3" })
 local out = g:chat(
   { system = "You write terse one-line answers.", user = "Say hi in one word." },
   { max_tokens = 16, temperature = 0.0, stop = { "\n" } })
 print("completion:", out)
 local raw = llama.create(model_path, { mode = "generate" })
-local ok, err = pcall(function ()
+local ok, msg = err.pcall(function ()
   return raw:chat({ user = "hi" })
 end)
-print("no template configured:", ok, err)
+print("no template configured:", ok, msg)
 ]],
     },
 
@@ -299,10 +349,12 @@ print("greedy is deterministic:", greedy == g:generate("Once upon a time"))
       desc = table.concat({
         "The rock builds against a vendored llama.cpp pinned by commit and links its ",
         "static archives with OpenMP, BLAS/LAPACK, and libstdc++; at runtime you ",
-        "supply a gguf model file. The regress suites are benchmarks, not unit tests: ",
-        "they read LLAMA_MODEL (embedders) or LLAMA_GEN_MODEL (generator) and skip ",
-        "when unset. llama.cpp logging is silenced, and the backend is refcounted: ",
-        "it is freed when the last embedder or generator is collected.",
+        "supply a gguf model file. The regress suites are benchmarks: they read ",
+        "LLAMA_MODEL (embedders), LLAMA_RETRIEVAL_MODEL (retrieval), or LLAMA_GEN_MODEL ",
+        "(generator) and skip when unset, and the classification and retrieval suites ",
+        "also need their test/res datasets. llama.cpp logging is silenced, and the ",
+        "backend is refcounted: it's freed when the last embedder or generator is ",
+        "collected.",
       }),
       runnable = false,
       code = [[

@@ -5,17 +5,18 @@ return {
     "on santoku-matrix types (csr sparse features, mtx dense codes, spans) covering ",
     "n-gram tokenization, Aho-Corasick gazetteer matching, booleanization, spectral ",
     "Nystrom embeddings, ridge regression, and calibrated decisions, with ",
-    "optimize.krr tying the whole modelling path together. Binary-code retrieval ",
-    "uses santoku-matrix directly: bm25 weighting, spectral codes, mtx:itq, and ",
-    "Hamming top-k. The front half of ",
+    "optimize.krr tying the whole modelling path together. santoku.learn.retrieval ",
+    "ranks bm25 candidates and reranks them with dense codes, and optimize.lexical ",
+    "and optimize.retrieval tune its parameters. Binary-code search uses santoku-matrix ",
+    "directly: spectral codes, mtx:itq, and Hamming top-k. The front half of ",
     "that pipeline runs live on this page: tokenizer, aho, booleanizer, and decide ",
     "ship in the browser bundle as WASM builds, so their examples are runnable ",
     "right here. The back half ",
-    "(spectral, ridge, optimize, and the file-fed dataset, util, and bundle ",
+    "(spectral, ridge, optimize, retrieval, and the file-fed dataset, util, and bundle ",
     "helpers) is shown for reading: it depends on BLAS/LAPACK or on training corpora ",
     "read from disk. The full pipelines those examples distill live ",
-    "in the repo's regression suites (eurlex, newsgroups, imdb, mnist, housing, and ",
-    "the CoNLL pair): ",
+    "in the repo's regression suites (eurlex, newsgroups, imdb, mnist, housing, adult, ",
+    "scifact, and the CoNLL pair): ",
     "https://github.com/birchpointswe/lua-santoku-learn/tree/master/test/spec/santoku/learn/regress",
   }),
 
@@ -274,12 +275,10 @@ return hits:size()
       title = "santoku.learn.booleanizer",
       desc = table.concat({
         "Observe mixed categorical and continuous values, finalize, then encode rows ",
-        "to bit features (a csr) plus dense features (a matrix); restrict prunes the ",
-        "bit vocabulary to a kept id set.",
+        "to bit features (a csr) plus dense features (a matrix).",
       }),
       code = [[
 local booleanizer = require("santoku.learn.booleanizer")
-local ivec = require("santoku.ivec")
 local bzr = booleanizer.create()
 bzr:observe("title", "The Great Gatsby")
 bzr:observe("title", "1984")
@@ -301,10 +300,6 @@ local rows = {
 local bits, dense = bzr:encode({ samples = rows, cols = cols })
 print("bit nnz:", bits:neighbors():size())
 print("dense shape:", dense:shape())
-local keep = ivec.create(2)
-keep:fill_indices()
-bzr:restrict(keep)
-print("bits after restrict:", (bzr:features()))
 return n_bits + n_dense
 ]],
     },
@@ -462,25 +457,23 @@ return S:col("id"):size()
     {
       title = "santoku.learn.spectral: embed and retrieve with binary codes",
       desc = table.concat({
-        "Weight n-gram features with bm25, embed them with a Nystrom spectral encoder, then ",
-        "fit an ITQ rotation (santoku-matrix mtx:itq) and search the sign bits by exhaustive ",
-        "Hamming top-k. Exact float topk over the codes is the reference. Queries reuse the ",
-        "fitted bm25 statistics, the encoder, the centering means, and the rotation. The full ",
-        "retrieval suite this distills: ",
+        "retrieval.featurizer fits bm25-weighted n-gram features and returns them as X, ",
+        "with a transform that tokenizes queries against the same vocabulary and bm25 ",
+        "statistics. Embed X with a Nystrom spectral encoder, fit an ITQ rotation ",
+        "(santoku-matrix mtx:itq), and search the sign bits by exhaustive Hamming top-k. ",
+        "Exact float topk over the codes is the reference. Queries reuse the encoder, the ",
+        "centering means, and the rotation. The full suite this distills: ",
         "https://github.com/birchpointswe/lua-santoku-learn/blob/master/test/spec/santoku/learn/retrieval.lua",
       }),
       runnable = false,
       code = [[
-local tokenizer = require("santoku.learn.tokenizer")
+local retrieval = require("santoku.learn.retrieval")
 local spectral = require("santoku.learn.spectral")
 local ds = require("santoku.learn.dataset")
 local texts = ds.read_imdb("test/res/imdb.50k", 500).problems
-local tok = tokenizer.create({ ngram_min = 4, ngram_max = 4, normalize = true })
-local X = tok:fit({ texts = texts })
-local w, avgdl = X:bm25()
-X:normalize()
-local _, enc = spectral.encode({ x = X, n_landmarks = 256, kernel = "cosine" })
-local C = enc:encode(X)
+local f = retrieval.featurizer({ ngram_min = 4, ngram_max = 4, texts = texts })
+local _, enc = spectral.encode({ x = f.X, n_landmarks = 256, kernel = "cosine" })
+local C = enc:encode(f.X)
 C:normalize()
 local mu = C:center()
 C:normalize()
@@ -490,16 +483,110 @@ local B = C:multiply(W):sign()
 print("docs, dims:", C:shape())
 print("exact nnz:", C:topk(C, 10):nnz())
 print("hamming nnz:", B:bits_topk(B, n_bits, 10):nnz())
-local Y = tok:tokenize({ texts = { texts[1] } })
-Y:bm25(w, avgdl)
-Y:normalize()
-local Q = enc:encode(Y)
+local Q = enc:encode(f.transform({ texts[1] }))
 Q:normalize()
 Q:center(mu)
 Q:normalize()
 local hit = B:bits_topk(Q:multiply(W):sign(), n_bits, 1)
 print("query finds doc:", hit:neighbors():get(0))
 return hit:nnz()
+]],
+    },
+
+    {
+      title = "santoku.learn.retrieval: bm25 candidates, reranked by codes",
+      desc = table.concat({
+        "dataset.read_beir(dir, split) reads a BEIR directory into corpus_texts, ",
+        "query_texts, and qrels, a csr of graded judgments with one row per query. ",
+        "retrieval.lexical normalizes both sides and counts word unigrams (ngram_max ",
+        "widens that). bm25_ranker(X, Q) returns rank(k1, b, depth), which reweights a ",
+        "copy of the corpus on each call and returns the top depth documents per query as ",
+        "a csr. It scores like santoku.sqlite.fts's santoku_bm25 at the same k1 and b. rerank keeps the ",
+        "candidate set and reorders it: it max-normalizes the lexical scores, scores each ",
+        "candidate by the dot product of its query and document codes, and blends the two ",
+        "with weight alpha on the codes. alpha 0 keeps the lexical order. The codes can ",
+        "be any dense rows: spectral codes here, llama embeddings on the learn-llama page. ",
+        "To serve bm25 from a database, use santoku.sqlite.fts (the sqlite tab's fts ",
+        "cards). The full suite: ",
+        "https://github.com/birchpointswe/lua-santoku-learn/blob/master/test/spec/santoku/learn/regress/scifact.lua",
+      }),
+      runnable = false,
+      code = [[
+local ds = require("santoku.learn.dataset")
+local retrieval = require("santoku.learn.retrieval")
+local spectral = require("santoku.learn.spectral")
+local d = ds.read_beir("test/res/scifact", "test")
+local X, Q = retrieval.lexical({ corpus_texts = d.corpus_texts, query_texts = d.query_texts })
+local rank = retrieval.bm25_ranker(X, Q)
+local R = rank(1.2, 0.75, 100)
+local _, lexical_ndcg = R:ndcg(d.qrels, 10)
+print("bm25 ndcg@10:", lexical_ndcg)
+local f = retrieval.featurizer({ ngram_min = 4, ngram_max = 4, texts = d.corpus_texts })
+local _, enc = spectral.encode({ x = f.X, n_landmarks = 256, kernel = "cosine" })
+local D = enc:encode(f.X)
+D:normalize()
+local mu = D:center()
+D:normalize()
+local Qc = enc:encode(f.transform(d.query_texts))
+Qc:normalize()
+Qc:center(mu)
+Qc:normalize()
+local R1 = retrieval.rerank({ candidates = R, query_codes = Qc, doc_codes = D, alpha = 0.96 })
+local _, reranked_ndcg = R1:ndcg(d.qrels, 10)
+print("reranked ndcg@10:", reranked_ndcg)
+return reranked_ndcg
+]],
+    },
+
+    {
+      title = "optimize.lexical and optimize.retrieval: tune bm25 and alpha",
+      desc = table.concat({
+        "Both take a datasets list and return the best parameters plus a table of each ",
+        "dataset's baseline ndcg@10. optimize.lexical searches k1, b, and ngram (1 or 2) ",
+        "for rank; its sets carry corpus_texts, query_texts, and qrels, and depth defaults ",
+        "to 100. optimize.retrieval searches the rerank alpha; its sets carry candidates, ",
+        "qrels, query_codes, and doc_codes, built here as in the card above. search_trials defaults to 0, which returns the ",
+        "defaults without a search: k1 1.2, b 0.75, ngram 1, alpha 0.96. Above 0 a CMA-ES ",
+        "search scores each trial by the mean ratio of ndcg@10 to each dataset's ",
+        "baseline, and downside adds a penalty for datasets that fall below theirs.",
+      }),
+      runnable = false,
+      code = [[
+local ds = require("santoku.learn.dataset")
+local optimize = require("santoku.learn.optimize")
+local retrieval = require("santoku.learn.retrieval")
+local spectral = require("santoku.learn.spectral")
+local d = ds.read_beir("test/res/scifact", "test")
+local lex = optimize.lexical({
+  datasets = { {
+    name = "scifact", corpus_texts = d.corpus_texts,
+    query_texts = d.query_texts, qrels = d.qrels,
+  } },
+  search_trials = 40,
+})
+print("k1, b, ngram:", lex.k1, lex.b, lex.ngram)
+local X, Q = retrieval.lexical({
+  corpus_texts = d.corpus_texts, query_texts = d.query_texts, ngram_max = lex.ngram,
+})
+local R = retrieval.bm25_ranker(X, Q)(lex.k1, lex.b, 100)
+local f = retrieval.featurizer({ ngram_min = 4, ngram_max = 4, texts = d.corpus_texts })
+local _, enc = spectral.encode({ x = f.X, n_landmarks = 256, kernel = "cosine" })
+local D = enc:encode(f.X)
+D:normalize()
+local mu = D:center()
+D:normalize()
+local Qc = enc:encode(f.transform(d.query_texts))
+Qc:normalize()
+Qc:center(mu)
+Qc:normalize()
+local best = optimize.retrieval({
+  datasets = { {
+    name = "scifact", candidates = R, qrels = d.qrels,
+    query_codes = Qc, doc_codes = D,
+  } },
+})
+print("alpha:", best.alpha)
+return best.alpha
 ]],
     },
 
@@ -669,6 +756,63 @@ local _, scores = util.predict_tiled({
 local m = eval.regress_accuracy(scores, test_set.targets)
 print("test accuracy:", 1 - m.nmae)
 return m.nmae
+]],
+    },
+
+    {
+      title = "tabular classification: dataset.read_adult",
+      desc = table.concat({
+        "dataset.read_adult(dir) fits a booleanizer on the UCI Adult training rows and ",
+        "returns the train and test splits (n, bits, dense, labels) plus a meta table ",
+        "with the booleanizer, n_bits, and n_dense. Center and standardize the dense ",
+        "columns, standardize the bits, and pass the dense block with group_offsets, one ",
+        "group per column, so scales pins one weight per column group and one for the ",
+        "bits block. The full pipeline: ",
+        "https://github.com/birchpointswe/lua-santoku-learn/blob/master/test/spec/santoku/learn/regress/adult.lua",
+      }),
+      runnable = false,
+      code = [[
+local ds = require("santoku.learn.dataset")
+local optimize = require("santoku.learn.optimize")
+local util = require("santoku.learn.util")
+local mtx = require("santoku.mtx")
+local train, test_set, meta = ds.read_adult("test/res/adult")
+local function dense_block (d, mean)
+  local X = mtx.create({ data = d.dense:data():to_fvec(), n_rows = d.n, n_cols = meta.n_dense })
+  if mean then X:center(mean) else mean = X:center() end
+  return X:to_sparse():i32(), mean
+end
+local Xc, mean = dense_block(train)
+local Xt = dense_block(test_set, mean)
+Xt:scale_cols(Xc:standardize())
+local bits = train.bits:i32()
+local bits_t = test_set.bits:i32()
+bits_t:scale_cols(bits:standardize())
+local go = {}
+for g = 0, meta.n_dense do go[g + 1] = g end
+local _, ridge, deploy, _, decider = optimize.krr({
+  pool_blocks = { { x = Xc, group_offsets = go }, bits },
+  pool_labels = train.labels,
+  pool_class = train.labels:neighbors(),
+  n_labels = 2,
+  n_landmarks = 1024 * 8,
+  kernel = { "matern" },
+  nu = { def = 0 },
+  gamma = { def = 0.33884277 },
+  lambda = { def = 0.0044132295 },
+  scales = { def = { 0.80902091, 0.006489361, 465.91994, 0.31863918, 0.31888871, 5.3659771, 0.74979041 } },
+  k = 1,
+  search_trials = 0,
+  folds = 5,
+})
+local _, scores = util.predict_tiled({
+  deploy = deploy, ridge = ridge,
+  blocks = { { x = Xt, group_offsets = go }, bits_t },
+  n = test_set.n, scores = true, n_labels = 2,
+})
+local _, m = decider:score({ scores = scores, n_samples = test_set.n, expected = test_set.labels })
+print(util.fmt_metrics(m))
+return m.accuracy
 ]],
     },
 
