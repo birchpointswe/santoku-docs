@@ -91,12 +91,12 @@ return {
       bundle_mods = fs.runfile("res/docs/bundle_mods.lua"),
       dependencies = {
         "lua == 5.1",
-        "santoku >= 2.3.0, < 3.0.0",
+        "santoku >= 2.5.0, < 3.0.0",
         "santoku-web >= 2.2.3, < 3.0.0",
         "santoku-fs >= 2.0.0, < 3.0.0",
         "santoku-lpeg >= 2.2.1, < 3.0.0",
         "santoku-matrix >= 2.5.0, < 3.0.0",
-        "santoku-sqlite >= 4.0.9, < 5.0.0",
+        "santoku-sqlite >= 4.1.0, < 5.0.0",
         "santoku-sqlite-migrate >= 2.0.0, < 3.0.0",
         "santoku-learn >= 3.2.0, < 4.0.0",
         "santoku-template >= 2.0.3, < 3.0.0",
@@ -133,17 +133,17 @@ return {
     server = {
       dependencies = {
         "lua == 5.1",
-        "santoku >= 2.3.0, < 3.0.0",
+        "santoku >= 2.5.0, < 3.0.0",
       },
       test = {
         dependencies = {
-          "santoku >= 2.3.0, < 3.0.0",
-          "santoku-make >= 5.2.0, < 6.0.0",
-          "santoku-cli >= 2.15.0, < 3.0.0",
+          "santoku >= 2.5.0, < 3.0.0",
+          "santoku-make >= 5.2.1, < 6.0.0",
+          "santoku-cli >= 2.16.0, < 3.0.0",
           "santoku-fs >= 2.1.3, < 3.0.0",
           "santoku-web >= 2.2.3, < 3.0.0",
           "santoku-http >= 2.0.0, < 3.0.0",
-          "santoku-sqlite >= 4.0.9, < 5.0.0",
+          "santoku-sqlite >= 4.1.0, < 5.0.0",
         }
       }
     },

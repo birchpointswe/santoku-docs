@@ -178,11 +178,12 @@ return heap:size()
         "A dense matrix is a row-major view over a typed vector. Wrapping adopts the vector: data ",
         "returns the very same object, and writes through either side are visible in the other, here ",
         "in wasm linear memory. Allocation without data gives a ",
-        "zeroed matrix, the element type is inferred from the wrapped vector, and from_pairs scatters ",
-        "(row, col) index pairs into a count or weight matrix.",
+        "zeroed matrix, and the element type is inferred from the wrapped vector. To count (row, col) ",
+        "index pairs, build a sparse matrix with csr.from_pairs and densify it with to_dense.",
       }),
       code = [[
 local mtx = require("santoku.mtx")
+local csr = require("santoku.csr")
 local dvec = require("santoku.dvec")
 local ivec = require("santoku.ivec")
 local arr = require("santoku.array")
@@ -198,9 +199,9 @@ local Z = mtx.create({ n_rows = 2, n_cols = 2, type = "f64" })
 print("zeroed:", Z:get(0, 0), Z:get(1, 1))
 local I = mtx.create({ data = ivec.create({ 1, 2, 3, 4 }), n_rows = 2, n_cols = 2 })
 print("inferred:", I:type())
-local P = mtx.from_pairs(
+local P = csr.from_pairs(
   ivec.create({ 0, 0, 1, 2, 2, 2 }),
-  ivec.create({ 0, 1, 1, 0, 0, 1 }), 3, 2)
+  ivec.create({ 0, 1, 1, 0, 0, 1 }), 3, 2):to_dense()
 print("from_pairs:", arr.concat(P:data():table(), " "))
 return M:shape()
 ]],
@@ -299,8 +300,10 @@ return C:shape()
       title = "mtx: fit and apply transforms",
       desc = table.concat({
         "center subtracts per-column means and returns them; pass those means to center held-out data ",
-        "identically. standardize returns means and inverse standard deviations, and normalize scales ",
-        "each row to unit L2 norm in place. The same fit/apply idiom runs through the whole library.",
+        "identically. standardize scales each column to unit standard deviation without centering and ",
+        "returns the weights; scale_cols applies them to held-out rows, and standardize(\"rms\") scales ",
+        "by root mean square instead. normalize scales each row to unit L2 norm in place, and ",
+        "normalize(\"max\") divides each row by its largest value. csr has the same methods.",
       }),
       code = [[
 local mtx = require("santoku.mtx")
@@ -314,13 +317,15 @@ local N = mtx.create({ data = dvec.create({ 2, 15 }), n_rows = 1, n_cols = 2 })
 N:center(means)
 print("applied:", arr.concat(N:data():table(), " "))
 local S = mtx.create({ data = dvec.create({ 1, 10, 3, 20 }), n_rows = 2, n_cols = 2 })
-local mu, istd = S:standardize()
-print("col sums now:", arr.concat(S:sums("col"):table(), " "))
-print("istd size:", istd:size())
+local w = S:standardize()
+print("weights:", arr.concat(w:table(), " "))
+local H = mtx.create({ data = dvec.create({ 2, 15 }), n_rows = 1, n_cols = 2 })
+H:scale_cols(w)
+print("held out:", arr.concat(H:data():table(), " "))
 local L = mtx.create({ data = dvec.create({ 3, 4, 0, 0, 5, 12 }), n_rows = 2, n_cols = 3 })
-L:normalize("row")
+L:normalize()
 print("row mags:", arr.concat(L:mags("row"):table(), " "))
-return mu:size()
+return w:size()
 ]],
     },
 
@@ -329,7 +334,7 @@ return mu:size()
       desc = table.concat({
         "A csr is offsets (length n_rows plus one), neighbors (column ids), and optional values; omit ",
         "values and it is a binary matrix with type \"none\". Wrap existing vectors zero-copy, or build ",
-        "incrementally: push adds (column, value) pairs and row closes each row, including empty ones. ",
+        "incrementally: push adds (column, value) pairs and endrow closes each row, including empty ones. ",
         "from_classes turns one label per row into one-hot rows, from_mask turns a 0/1 vector into a ",
         "single indicator column.",
       }),
@@ -346,9 +351,9 @@ print("shape:", X:shape())
 print("nnz:", X:nnz())
 print("type:", X:type())
 local B = csr.create({ n_cols = 4, values = "f32" })
-B:push(0, 1.5):push(2, 2.5):row()
-B:row()
-B:push(3):row()
+B:push(0, 1.5):push(2, 2.5):endrow()
+B:endrow()
+B:push(3):endrow()
 print("offsets:", arr.concat(B:offsets():table(), " "))
 print("neighbors:", arr.concat(B:neighbors():table(), " "))
 print("value(1):", B:values():get(1))
@@ -369,8 +374,8 @@ return X:nnz()
         "weight held-out rows with the fitted statistics; row lengths are measured per row. normalize ",
         "L2-scales each row and materializes f32 values on a binary matrix; normalize(\"max\") divides ",
         "each row by its largest value instead, leaving rows whose max is 0 or less alone. scale_cols multiplies ",
-        "each column by a weight. bns and standardize follow the same fit and apply pattern for ",
-        "supervised and z-score weighting.",
+        "each column by a weight, and it's the one way to apply fitted weights to held-out rows: bns ",
+        "and standardize fit supervised and scale weights, apply them, and return them.",
       }),
       code = [[
 local csr = require("santoku.csr")
@@ -408,9 +413,9 @@ return N:type()
     },
 
     {
-      title = "csr: gather, select, hcat, transpose",
+      title = "csr: gather, cols, hcat, transpose",
       desc = table.concat({
-        "rows gathers whole rows into a new csr, select keeps a subset of columns and remaps their ids ",
+        "rows gathers whole rows into a new csr, cols keeps a subset of columns and remaps their ids ",
         "to a compact 0-based space, hcat concatenates feature blocks in place (shifting the right ",
         "block's column ids past the left block's width), and transpose flips rows and columns, ",
         "carrying values along.",
@@ -434,7 +439,7 @@ local S = csr.create({
   values = fvec.create({ 1, 2, 3, 4, 5 }),
   n_cols = 4,
 })
-local P = S:select(ivec.create({ 1, 3 }))
+local P = S:cols(ivec.create({ 1, 3 }))
 print("selected:", arr.concat(P:neighbors():table(), " "))
 print("remapped shape:", P:shape())
 local A = csr.create({
@@ -465,8 +470,8 @@ return A:shape()
       title = "dense, sparse, and bit bridges",
       desc = table.concat({
         "to_sparse drops zeros (or anything under an optional epsilon) into a csr, to_dense expands ",
-        "back, and the pair round-trips exactly. to_bits packs a binary csr into a bitmap vector for ",
-        "the mtx bits layout, and from_bits unpacks it, so the same rows can move between the three ",
+        "back, and the pair round-trips exactly. to_bits packs a binary csr into a cvec bitmap for ",
+        "the cvec bits_ methods, and from_bits unpacks it, so the same rows can move between the three ",
         "representations.",
       }),
       code = [[
@@ -498,17 +503,18 @@ return X:nnz()
     },
 
     {
-      title = "bit matrices: popcount, hamming, bitwise ops",
+      title = "cvec bits: popcount, hamming, bitwise ops",
       desc = table.concat({
-        "A bits-tagged mtx wraps a packed bitmap and supports popcount, hamming distance, transpose, ",
-        "and in-place band, bor, bxor, and bandnot. Hamming distance equals the popcount of the xor, ",
-        "and transpose preserves popcount. This is the binary-fingerprint layout used for sign-hashed ",
-        "embeddings.",
+        "A cvec is a bytestring, and its bits_ methods read it as a packed bit matrix whose row width ",
+        "you pass on each call. bits_popcount counts every set bit, bits_hamming gives one distance ",
+        "per row, bits_transpose flips rows and columns, and bits_and, bits_or, bits_xor and ",
+        "bits_andnot combine two bitmaps in place. bits_to_dense expands a bitmap into an f32 mtx of ",
+        "0s and 1s. This is the binary-fingerprint layout used for sign-hashed embeddings.",
       }),
       code = [[
 local csr = require("santoku.csr")
-local mtx = require("santoku.mtx")
 local ivec = require("santoku.ivec")
+local arr = require("santoku.array")
 local A = csr.create({
   offsets = ivec.create({ 0, 2, 3 }),
   neighbors = ivec.create({ 0, 2, 1 }),
@@ -519,17 +525,15 @@ local B = csr.create({
   neighbors = ivec.create({ 0, 1, 3 }),
   n_cols = 4,
 })
-local MA = mtx.create({ data = A:to_bits(), n_rows = 2, n_cols = 4, bits = true })
-local MB = mtx.create({ data = B:to_bits(), n_rows = 2, n_cols = 4, bits = true })
-print("type:", MA:type())
-print("popcounts:", MA:popcount(), MB:popcount())
-print("hamming:", MA:hamming(MB))
-local T = MA:transpose()
-print("T shape:", T:shape())
-print("T popcount:", T:popcount())
-MA:band(MB)
-print("after band:", MA:popcount())
-return MA:popcount()
+local BA, BB = A:to_bits(), B:to_bits()
+print("popcounts:", BA:bits_popcount(), BB:bits_popcount())
+print("hamming:", arr.concat(BA:bits_hamming(BB, 4):table(), " "))
+local T = BA:bits_transpose(2, 4)
+print("T popcount:", T:bits_popcount())
+BA:bits_and(BB)
+print("after and:", BA:bits_popcount())
+print("dense:", arr.concat(BA:bits_to_dense(2, 4):data():table(), " "))
+return BA:bits_popcount()
 ]],
     },
 
@@ -539,8 +543,8 @@ return MA:popcount()
         "corpus:topk(queries, k) scores every corpus row against every query row by dot product (BLAS ",
         "natively, C loops here) and keeps each query's k best with a bounded heap. The result is a ",
         "csr with one row per query, neighbors holding corpus row ids and values holding scores, both ",
-        "ordered by descending score. On a bits matrix, topk is an exhaustive Hamming search instead: ",
-        "the values are distances, smallest first.",
+        "ordered by descending score. For packed bits, cvec's bits_topk runs the same exhaustive ",
+        "search by Hamming distance, smallest first.",
       }),
       code = [[
 local mtx = require("santoku.mtx")
@@ -567,34 +571,38 @@ return P:nnz()
     {
       title = "mtx: sign bits, ITQ, and Hamming top-k",
       desc = table.concat({
-        "sign packs an f32 or f64 matrix into a raw sign-bit vector; wrap it with bits = true to get ",
-        "a bits mtx. itq fits a rotation that balances those bits against the float geometry, with a ",
+        "sign packs an f32 or f64 matrix into a cvec of sign bits, one packed row per matrix row. ",
+        "itq fits a rotation that balances those bits against the float geometry, with a ",
         "PCA step first when bits is below n_cols. Center and row-normalize the codes before fitting. ",
         "itq takes iterations (50), bits (n_cols) and rotate (true), and returns W, the loss per ",
-        "iteration, the inner step counts, and the variance fraction PCA kept. topk on the bits mtx ",
-        "then ranks by Hamming distance.",
+        "iteration, the inner step counts, and the variance fraction PCA kept. bits_topk on the ",
+        "codes then ranks by Hamming distance, ties by ascending row id. The six rows here are three ",
+        "pairs of near-duplicates, so each row's two nearest codes are itself and its partner.",
       }),
       code = [[
 local mtx = require("santoku.mtx")
 local fvec = require("santoku.fvec")
 local arr = require("santoku.array")
-local function bits (M)
-  local r, c = M:shape()
-  return mtx.create({ data = M:sign(), n_rows = r, n_cols = c, bits = true })
-end
 local C = mtx.create({
-  data = fvec.create({ 0.9, 0.1, -0.2, 0.8, 0.2, -0.1, -0.7, 0.6, 0.3, -0.8, 0.5, 0.2 }),
-  n_rows = 4, n_cols = 3,
+  data = fvec.create({
+    0.9, 0.1, -0.2, 0.3,
+    0.8, 0.2, -0.1, 0.4,
+    -0.7, 0.6, 0.3, -0.2,
+    -0.6, 0.7, 0.2, -0.3,
+    0.1, -0.8, 0.9, 0.2,
+    0.2, -0.7, 0.8, 0.1,
+  }),
+  n_rows = 6, n_cols = 4,
 })
-C:normalize("row")
+C:normalize()
 C:center()
-C:normalize("row")
+C:normalize()
 local W, loss, _, kept = C:itq({ iterations = 20 })
+local _, n_bits = W:shape()
 print("W shape:", W:shape())
 print("iterations:", loss:size(), "kept:", kept)
-local B = bits(C:multiply(W))
-print("type:", B:type())
-local P = B:topk(B, 2)
+local B = C:multiply(W):sign()
+local P = B:bits_topk(B, n_bits, 2)
 print("ids:", arr.concat(P:neighbors():table(), " "))
 print("hamming:", arr.concat(P:values():table(), " "))
 return P:nnz()
@@ -635,10 +643,10 @@ return dense:nnz()
     {
       title = "csr.fuse: hybrid result merging",
       desc = table.concat({
-        "fuse merges two ranked result sets row by row: the default sums scores across sides (with ",
-        "optional per-side weights), k keeps only the top k per row, and mode rrf switches to ",
-        "reciprocal rank fusion over 0-based row positions, ignoring the raw scores. Output rows come ",
-        "back sorted by descending fused score, ready to feed a hybrid lexical-plus-vector ranker.",
+        "fuse merges two ranked result sets row by row by summing scores across sides. weights sets ",
+        "a multiplier per side, k keeps only the top k per row, and any other option raises. Put both ",
+        "sides on one scale first, for example with normalize(\"max\"). Output rows come back sorted ",
+        "by descending fused score, ready to feed a hybrid lexical-plus-vector ranker.",
       }),
       code = [[
 local csr = require("santoku.csr")
@@ -664,9 +672,6 @@ local W = csr.fuse(A, B, { weights = { 1, 10 } })
 print("weighted ids:", arr.concat(W:neighbors():table(), " "))
 local K = csr.fuse(A, B, { k = 2 })
 print("top 2 nnz:", K:nnz())
-local R = csr.fuse(A, B, { mode = "rrf", rrf_k = 1 })
-print("rrf ids:", arr.concat(R:neighbors():table(), " "))
-print("rrf scores:", arr.concat(R:values():table(), " "))
 return Y:nnz()
 ]],
     },

@@ -537,11 +537,12 @@ print("elapsed:", duration, total)
         "streams without any setup; call seed or fast_seed with an explicit value ",
         "only when you want a reproducible run. alnum draws from the 62 ASCII ",
         "alphanumerics, while str draws from a raw byte range and will include ",
-        "punctuation. C extensions that include <santoku/lua/utils.h> and call ",
-        "tk_fast_random directly get their own thread-local generator per shared ",
-        "object, which seeds itself from clock entropy on first use. fast_seed seeds ",
-        "only santoku.random's copy, so a reproducible run also calls tk_fast_seed ",
-        "in each such extension.",
+        "punctuation. The fast generator is one state per Lua state, shared by every ",
+        "C extension, so fast_seed also fixes C draws such as an unseeded ",
+        "vec:shuffle. A C extension that includes <santoku/lua/utils.h> calls ",
+        "tk_fast_bind(L) in each entry point before tk_fast_random, tk_fast_normal ",
+        "or tk_fast_seed; a draw before any bind aborts. seed(n) fixes math.random ",
+        "draws such as arr.shuffle, and vec:shuffle(seed) seeds one call alone.",
       }),
       code = [[
 local random = require("santoku.random")

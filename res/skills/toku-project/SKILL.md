@@ -68,6 +68,7 @@ toku build --test                    # web: render client wasm and server tree
 toku start --test                    # web: run OpenResty against it
 toku stop                            # web: stops both environments
 toku lua --tree test script.lua      # a script against the test tree
+toku lua script.lua a b              # arg[1] = "a", arg[2] = "b"; put -- first for dash args
 eval "$(toku env --tree test)"       # LUA_PATH and LUA_CPATH for any command
 toku install                         # install into the active rocks tree
 toku pack                            # rockspec and tarball, no release

@@ -577,8 +577,10 @@ $ toku skills
       title = "toku lua: an instrumented interpreter",
       desc = table.concat({
         "Runs a string or file under the configured interpreter (--lua overrides). The ",
-        "file comes positionally or with --file, and passing a path together with --file ",
-        "or --string is an error. --tree runs against a project lua tree, covered above.",
+        "file comes positionally or with --file. Positionals after the file reach the ",
+        "script as arg[1], arg[2] and so on; with --file every positional is an ",
+        "argument. Put -- before the file when an argument starts with a dash. --string ",
+        "takes no arguments. --tree runs against a project lua tree, covered above. ",
         "The instruments become -l preloads: --trace loads santoku.trace for line ",
         "tracing, and --serialize loads santoku.autoserialize, which wraps the global ",
         "print so tables come out as readable Lua literals instead of table: 0x... ",
@@ -591,8 +593,10 @@ $ toku lua --string 'print(1 + 2)'
 3
 $ toku lua --serialize --string 'print({ a = 1, b = { 2, 3 } })'
 $ toku lua --trace scripts/step-through.lua
-$ toku lua scripts/a.lua --string 'x()'
-toku lua takes one of a script path, --file or --string
+$ toku lua scripts/report.lua input.csv 10
+$ toku lua -- scripts/report.lua -v input.csv
+$ toku lua --string 'x()' extra
+toku lua takes no script arguments with --string: extra
 ]],
     },
 

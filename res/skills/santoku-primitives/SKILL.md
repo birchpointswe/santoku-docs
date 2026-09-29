@@ -69,6 +69,14 @@ hides a failure is a bug: work one way or fail loudly.
 - `santoku.lua` owns loading, never `loadstring or load`.
 - No capability guards in code that only ever runs on Lua 5.1.
 
+## Random numbers in C
+
+The fast generator in `<santoku/lua/utils.h>` is one state per Lua state, shared by every C
+extension, and `random.fast_seed(n)` seeds all of it. Call `tk_fast_bind(L)` at the top of
+each entry point, or in `luaopen`, before `tk_fast_random`, `tk_fast_normal` or
+`tk_fast_seed`. A draw before any bind aborts. For a call-local stream, seed a `uint64_t` with
+`tk_hash_mix(seed)` and draw with `tk_fast_step(&state)`.
+
 ## Lua 5.1 only
 
 The whole stack targets 5.1, and exploits it: userdata `fenv` for per-object anchoring,
