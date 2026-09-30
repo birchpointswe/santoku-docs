@@ -106,7 +106,7 @@ local parts = {}
 for chunk in sys.sh({ "esbuild", "--minify", tmp }) do
   parts[#parts + 1] = chunk
 end
-os.remove(tmp)
+fs.rm(tmp)
 print(arr.concat(parts, "\n"))
 ]],
     },
@@ -249,6 +249,7 @@ end
       runnable = false,
       code = [[
 local sys = require("santoku.system")
+local fs = require("santoku.fs")
 if not sys.atom then
   return "atom unavailable on this platform"
 end
@@ -261,7 +262,7 @@ for line in sys.sh({
       local i = next_i()
       if i > #vals then break end
       print(job, i, vals[i])
-      io.stdout:flush()
+      fs.stdout:flush()
     end
   end,
 }) do
@@ -276,6 +277,7 @@ end
       runnable = false,
       code = [[
 local sys = require("santoku.system")
+local fs = require("santoku.fs")
 if not sys.atom then
   return "atom unavailable on this platform"
 end
@@ -286,7 +288,7 @@ for line in sys.sh({
     for _ = 1, 3 do
       local page = next_page()
       print(job, "fetching page", page)
-      io.stdout:flush()
+      fs.stdout:flush()
     end
   end,
 }) do
@@ -301,6 +303,7 @@ end
       runnable = false,
       code = [[
 local sys = require("santoku.system")
+local fs = require("santoku.fs")
 if not sys.mutex then
   return "mutex unavailable on this platform"
 end
@@ -314,7 +317,7 @@ for line in sys.sh({
   fn = function (job)
     lock(function ()
       print("job " .. job .. " has the lock")
-      io.stdout:flush()
+      fs.stdout:flush()
     end)
   end,
 }) do
@@ -329,13 +332,15 @@ end
       runnable = false,
       code = [[
 local sys = require("santoku.system")
+local fs = require("santoku.fs")
+local err = require("santoku.error")
 local payload_env = { API_KEY = "s3cret", REGION = "us-east-1" }
 for k, v in pairs(payload_env) do
   sys.setenv(k, v)
 end
-local ok, e = pcall(sys.execp, "terraform", { "plan" })
-io.stderr:write("terraform: " .. tostring(e) .. "\n")
-os.exit(127)
+local _, e = err.pcall(sys.execp, "terraform", { "plan" })
+fs.stderr:write("terraform: " .. tostring(e) .. "\n")
+sys.exit(127)
 ]],
     },
 
@@ -345,13 +350,15 @@ os.exit(127)
       runnable = false,
       code = [[
 local sys = require("santoku.system")
+local fs = require("santoku.fs")
+local err = require("santoku.error")
 local path = "/tmp/ll-agent.sock"
 local pid = sys.fork()
 if pid == 0 then
   sys.setenv("SSH_AUTH_SOCK", path)
-  local _, e = pcall(sys.execp, "ssh", { "deploy@host", "uptime" })
-  io.stderr:write("ssh: " .. tostring(e) .. "\n")
-  os.exit(127)
+  local _, e = err.pcall(sys.execp, "ssh", { "deploy@host", "uptime" })
+  fs.stderr:write("ssh: " .. tostring(e) .. "\n")
+  sys.exit(127)
 end
 local _, reason, status = sys.wait(pid)
 print(reason, status)
@@ -364,16 +371,17 @@ print(reason, status)
       runnable = false,
       code = [[
 local sys = require("santoku.system")
-io.flush()
+local fs = require("santoku.fs")
+fs.flush()
 local r, w = sys.pipe()
 local pid = sys.fork()
 if pid == 0 then
   sys.close(r)
   sys.dup2(w, 1)
   sys.close(w)
-  io.write("hello from the child")
-  io.flush()
-  os.exit(0)
+  fs.write("hello from the child")
+  fs.flush()
+  sys.exit(0)
 end
 sys.close(w)
 print(sys.read(r, sys.BUFSIZ))
@@ -394,7 +402,7 @@ print("bufsiz:", sys.BUFSIZ)
 sys.sleep(0.25)
 local pid = sys.fork()
 if pid == 0 then
-  os.exit(3)
+  sys.exit(3)
 end
 local wpid, reason, status = sys.wait(pid)
 print(wpid, reason, status)

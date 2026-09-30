@@ -200,7 +200,7 @@ runner({ "test/spec", "client/test/spec" }, {
     {
       title = "opts.match: filtering by Lua pattern",
       desc = table.concat({
-        "The filter is literally string.match(fp, match) against each candidate's ",
+        "The filter is literally str.match(fp, match) against each candidate's ",
         "full path, applied after directory walking, so an unanchored pattern ",
         "selects by substring anywhere in the path and anchors or magic characters ",
         "work as in any Lua pattern. This live snippet replicates the runner's ",
@@ -209,6 +209,7 @@ runner({ "test/spec", "client/test/spec" }, {
       }),
       code = [[
 local arr = require("santoku.array")
+local str = require("santoku.string")
 local candidates = {
   "test/spec/santoku/array.lua",
   "test/spec/santoku/fracidx.lua",
@@ -219,7 +220,7 @@ local function selected (match)
   local out = {}
   for i = 1, #candidates do
     local fp = candidates[i]
-    if (not match) or string.match(fp, match) then
+    if (not match) or str.match(fp, match) then
       out[#out + 1] = fp
     end
   end
@@ -298,20 +299,22 @@ $ echo $?
         "is copied, the path appended, and the child spawned); otherwise .lua ",
         "files run in-process via fs.runfile against the shared run_env; anything ",
         "else is handed to santoku.system.execute as a program of its own. The ",
-        "trailing closure receives pcall's results: on failure print the error, ",
-        "and exit 1 only when stop is set.",
+        "trailing closure receives pcall's results: on failure it records the ",
+        "failure, prints the error, and exits 1 only when stop is set. Without ",
+        "stop the runner returns false after the last file if any file failed.",
       }),
       runnable = false,
       code = [[
-local function process_fp (fp, interp, match, stop)
+local function process_fp (state, fp, interp, match, stop)
   if fp and ((not match) or smatch(fp, match)) then
     print("Test:", fp)
     return (function (ok, ...)
-      if stop and not ok then
+      if not ok then
+        state.failed = true
         print(...)
-        os.exit(1)
-      elseif not ok then
-        print(...)
+        if stop then
+          sysexit(1)
+        end
       end
     end)(pcall(function ()
       if interp then
@@ -319,7 +322,7 @@ local function process_fp (fp, interp, match, stop)
       elseif endswith(fp, ".lua") then
         runfile(fp, run_env)
       else
-        execute(fp)
+        execute({ fp })
       end
     end))
   end

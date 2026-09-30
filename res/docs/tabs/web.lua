@@ -480,23 +480,6 @@ end)
     },
 
     {
-      title = "santoku.web.sqlite: the main-thread proxy",
-      desc = "proxy(bundle_path) spawns the worker, registers an rpc port, and returns a core whose every method is a remote call that awaits inline and spreads the worker's return values, plus a promise that resolves when the worker signals ready.",
-      runnable = false,
-      code = [[
-local proxy = require("santoku.web.sqlite.proxy")
-local async = require("santoku.web.async")
-local core, ready = proxy("/db-worker.js")
-async(function ()
-  ready:await()
-  local id = core.add("milk")
-  print("inserted:", id)
-  print("read back:", core.name_of(id))
-end)
-]],
-    },
-
-    {
       title = "santoku.web.pwa: content security policy",
       desc = "Build-time PWA scaffolding: csp.script_hashes collects sha256 hashes of inline scripts, policy assembles a strict CSP around them (self plus wasm-unsafe-eval for the runtime), and meta wraps it in a tag; sibling templates render index.html, manifest.json, and the service worker with precache and no_cache lists.",
       code = [[
@@ -526,6 +509,8 @@ print(csp.meta(hashes))
       lang = "lua",
       code = [[
 local proxy = require("santoku.web.sqlite.proxy")
+local js = require("santoku.web.js")
+local async = require("santoku.web.async")
 
 local bundle_js = js.document:querySelector('meta[name="bundle-js"]').content
 local core, ready = proxy(bundle_js, {

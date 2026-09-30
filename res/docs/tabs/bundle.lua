@@ -120,7 +120,7 @@ local fs = require("santoku.fs")
 local arr = require("santoku.array")
 fs.mkdirp("bin")
 fs.writefile("bin/main.lua", arr.concat({
-  "local name = \"myapp.backend.\" .. (os.getenv(\"BACKEND\") or \"memory\")",
+  "local name = \"myapp.backend.\" .. require(\"santoku.env\").var(\"BACKEND\", \"memory\")",
   "local backend = require(name)",
   "if false then require(\"myapp.debugview\") end",
   "backend.start()",
@@ -194,14 +194,15 @@ return "every module classified as lua or c"
         "resolved shared object to the compile command.",
       }),
       code = [[
+local str = require("santoku.string")
 local mods = { "santoku.fs.posix", "santoku.string.base", "santoku.web.val" }
 for i = 1, #mods do
-  local sym = "luaopen_" .. string.gsub(mods[i], "%.", "_")
+  local sym = "luaopen_" .. str.gsub(mods[i], "%.", "_")
   print(mods[i] .. "  ->  " .. sym)
 end
 print("generated C declares each: int luaopen_santoku_fs_posix(lua_State *L);")
 print("then registers it in package.preload before the bytecode runs")
-return "luaopen_" .. string.gsub(mods[1], "%.", "_")
+return "luaopen_" .. str.gsub(mods[1], "%.", "_")
 ]],
     },
 
@@ -265,7 +266,7 @@ print(b64)
 print("roundtrip ok: " .. tostring(str.from_base64(b64) == chunk))
 local bytes = {}
 for i = 1, 12 do
-  bytes[#bytes + 1] = string.format("0x%02x", string.byte(chunk, i))
+  bytes[#bytes + 1] = str.format("0x%02x", str.byte(chunk, i))
 end
 print(arr.concat(bytes, ",") .. ", ...")
 print("binary = true writes that array shape into the generated C")

@@ -126,13 +126,18 @@ local imap = require("santoku.imap")(driver)
       desc = table.concat({
         "fetch takes the uid set and the item list as strings and passes them ",
         "through, so anything the server understands is available. Each message ",
-        "comes back as a table holding only the items present in the response: uid, ",
-        "thrid and msgid from the Gmail extensions, header from a HEADER.FIELDS ",
-        "section, body from a BODY[TEXT] section (a partial range like <0.65536> is ",
-        "recognised and stripped), and structure from BODYSTRUCTURE. Literals are ",
+        "comes back as a table: uid and size as numbers, thrid and msgid from the ",
+        "Gmail extensions, internaldate as the server's string, flags as a set of ",
+        "lowercased names, labels as a set of X-GM-LABELS as sent, and structure ",
+        "from BODYSTRUCTURE. parts maps each BODY section name to its bytes (a ",
+        "partial range like <0.65536> is recognised and stripped); header is the ",
+        "HEADER section and body the other one. items keeps every item raw, with ",
+        "parenthesised lists such as ENVELOPE as nested tables. Literals are ",
         "reassembled before parsing, so a header arriving as {512} followed by ",
-        "512 bytes is indistinguishable from a quoted string. Use BODY.PEEK rather ",
-        "than BODY unless you want the message marked read.",
+        "512 bytes is indistinguishable from a quoted string. santoku.imap.date ",
+        "turns internaldate, or an RFC 2822 Date header, into epoch seconds, and ",
+        "returns nil for anything it can't parse. Use BODY.PEEK rather than BODY ",
+        "unless you want the message marked read.",
       }),
       runnable = false,
       code = [[
@@ -150,6 +155,14 @@ end)
 client.fetch("5", "UID BODY.PEEK[TEXT]<0.65536>", function (ok, msgs)
   print(msgs[1].body)
 end)
+
+local date = require("santoku.imap.date")
+client.fetch("7", "UID FLAGS X-GM-LABELS INTERNALDATE RFC822.SIZE", function (ok, msgs)
+  local m = msgs[1]
+  print(m.flags["\\seen"], m.labels["\\Inbox"], m.size)
+  print(date.internaldate(m.internaldate))
+end)
+print(date.rfc2822("Sat, 27 Sep 2026 08:51:00 -0400"))
 ]],
     },
 
@@ -210,7 +223,9 @@ end)
         "extract_text(content_type, content_transfer_encoding, raw) returns plain ",
         "text or nil. It decodes base64 and quoted-printable, descends multipart ",
         "bodies up to four levels preferring text/plain over text/html, and strips ",
-        "tags and the common entities out of HTML when plain text is absent. It ",
+        "tags out of HTML when plain text is absent, decoding numeric entities ",
+        "(&#233;, &#x1F600;) and the common named ones to UTF-8. An unknown or ",
+        "invalid entity stays as written. It ",
         "never raises: a malformed body returns nil. paragraphs then collapses that ",
         "text into an array of whitespace-normalised blocks, bounded on three axes ",
         "at once (max_len 2000 bytes per block, max_count 64 blocks, max_total ",

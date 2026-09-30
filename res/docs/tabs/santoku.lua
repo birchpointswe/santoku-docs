@@ -238,8 +238,9 @@ return str.format_number(1234567.89)
       title = "santoku.string: hashing and encodings",
       desc = table.concat({
         "The C core merged into santoku.string covers SHA-256 digests, hex, ",
-        "base64 (plain and URL-safe), percent-encoding, and parsing a number out ",
-        "of the middle of a string.",
+        "base64 (plain and URL-safe), percent-encoding, parsing a number out ",
+        "of the middle of a string, and utf8_char, which encodes codepoints as UTF-8 ",
+        "and raises on a surrogate or anything past U+10FFFF.",
       }),
       code = [[
 local str = require("santoku.string")
@@ -253,6 +254,7 @@ local enc = str.to_url("a value & more")
 print("percent-encoded:", enc)
 print("round trip:", str.from_url(enc))
 print("number at offset 2:", str.number("v1.25-beta", 2))
+print("utf8_char:", str.utf8_char(99, 97, 102, 233, 8364))
 return str.to_hex("\1\2\255")
 ]],
     },
@@ -403,11 +405,15 @@ return num.round(num.pi * 100) / 100
         "Order keys that sort lexically: insert between any two items without ",
         "renumbering the rest. between_n generates a balanced batch, and ",
         "validate rejects malformed keys. This is how to order list ",
-        "items under concurrent edits.",
+        "items under concurrent edits. For a block of derived keys, gap(prev, next) ",
+        "returns a prefix that sorts after prev and before next (next may be nil), ",
+        "and prefix .. suffix(i, width) numbers the block in order, while suffix_desc ",
+        "numbers it in reverse. width is 1 to 8 digits and must fit i.",
       }),
       code = [[
 local fracidx = require("santoku.fracidx")
 local arr = require("santoku.array")
+local err = require("santoku.error")
 local first = fracidx.between(nil, nil)
 local second = fracidx.between(first, nil)
 local middle = fracidx.between(first, second)
@@ -417,7 +423,12 @@ print("middle:", middle)
 print("ordered:", first < middle and middle < second)
 local batch = fracidx.between_n(first, second, 3)
 print("batch of 3:", arr.concat(batch, " "))
-print("bad key rejected:", pcall(fracidx.validate, "0oops"))
+print("bad key rejected:", err.pcall(fracidx.validate, "0oops"))
+local prefix = fracidx.gap(first, middle)
+local block = { prefix .. fracidx.suffix(0, 2), prefix .. fracidx.suffix(1, 2), prefix .. fracidx.suffix(2, 2) }
+print("block:", arr.concat(block, " "))
+print("inside:", first < block[1] and block[3] < middle)
+print("desc:", fracidx.suffix_desc(0, 2), fracidx.suffix_desc(1, 2))
 return fracidx.between(middle, second)
 ]],
     },

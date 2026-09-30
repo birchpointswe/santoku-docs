@@ -657,8 +657,10 @@ return "done"
         "files that the encrypting VFS stacks on top of via the third parent-vfs argument. A complete ",
         "encrypted open sequence: a hashed filename, a derived ",
         "key, key_set then open_encrypted on the parent VFS, pragmas, then migrations. ",
-        "When another tab held the lock and wrote in between, reset_cache drops the page cache and ",
-        "resets statements so the next read sees the new state.",
+        "When another tab held the lock and wrote in between, reset_cache resets statements and drops ",
+        "the page cache of the main and every attached database, so the next read sees the new state. ",
+        "A file holds one open connection per worker under opfs-coop: a second open of the same file ",
+        "in that worker fails with SQLITE_CANTOPEN, so share the one connection.",
       }),
       runnable = false,
       code = [[
