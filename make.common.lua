@@ -64,9 +64,32 @@ return {
   env = {
 
     name = "santoku-docs",
-    version = "0.0.5-1",
+    version = "0.0.6-1",
     license = "MIT",
     copyright = "Birch Point SWE",
+    vendored = {
+      {
+        name = "Tailwind CSS theme.css",
+        path = { "res/vendor/tailwind/theme.css" },
+        copyright = "(c) Tailwind Labs, Inc.",
+        license = "MIT",
+        note = "Copied from the tailwindcss package; version not recorded.",
+      },
+      {
+        name = "Prism", version = "1.30.0",
+        source = "https://cdn.jsdelivr.net/npm/prismjs@1.30.0/components/",
+        copyright = "(c) 2012 Lea Verou",
+        license = "MIT",
+        note = "Components core, markup, clike, c, javascript, sql, nginx, lua and bash, sha256-pinned in make.common.lua.",
+      },
+      {
+        name = "CodeJar", version = "4.2.0",
+        source = "https://cdn.jsdelivr.net/npm/codejar@4.2.0/dist/codejar.js",
+        copyright = "(c) 2020 Anton Medvedev",
+        license = "MIT",
+        note = "A build step strips the ES module export and exposes window.CodeJar.",
+      },
+    },
 
     build = {
       dependencies = {

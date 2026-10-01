@@ -48,6 +48,12 @@ artifact, so never delete it. Prefer `toku clean` over manual removal.
 Because the test tree is a real installed rock, specs run against the installed layout rather
 than the source tree. Running a spec file directly with `lua` will not work.
 
+A spec for code that reads another program's output or a fetched file drives the real path.
+Put a stand-in binary on `PATH` that serves a verbatim copy of the real input, and compare
+the whole output against a pinned expected text. A short stub passed in through an option
+skips the read and hides format bugs. santoku-make 5.4.0 to 5.5.1 shipped three LICENSE
+bugs that way: lost blank lines, wrap orphans and joined paragraphs.
+
 ## The dev loop
 
 Leave one of these running in a pane and edit in another:
