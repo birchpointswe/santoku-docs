@@ -1,3 +1,5 @@
+-- SPDX-License-Identifier: MIT
+-- SPDX-FileCopyrightText: 2026 Birch Point SWE
 local fs = require("santoku.fs")
 local arr = require("santoku.array")
 local sys = require("santoku.system")
@@ -62,8 +64,9 @@ return {
   env = {
 
     name = "santoku-docs",
-    version = "0.0.4-1",
+    version = "0.0.5-1",
     license = "MIT",
+    copyright = "Birch Point SWE",
 
     build = {
       dependencies = {

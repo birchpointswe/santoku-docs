@@ -1,3 +1,5 @@
+-- SPDX-License-Identifier: MIT
+-- SPDX-FileCopyrightText: 2026 Birch Point SWE
 return {
 
   intro = table.concat({
@@ -67,7 +69,7 @@ sys.execute({
 
     {
       title = "sys.sh: line iterator",
-      desc = "Fork a child and iterate its stdout line by line, trailing newlines stripped. When the child exits, the iterator ends; a non-zero exit raises through santoku.error instead.",
+      desc = "Fork a child and iterate its stdout line by line, trailing newlines stripped. A blank line comes back as an empty string; pass skip_blank = true to drop blank lines instead. When the child exits, the iterator ends; a non-zero exit raises through santoku.error instead.",
       runnable = false,
       code = [[
 local sys = require("santoku.system")

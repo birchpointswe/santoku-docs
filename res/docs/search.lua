@@ -1,3 +1,5 @@
+-- SPDX-License-Identifier: MIT
+-- SPDX-FileCopyrightText: 2026 Birch Point SWE
 return function (content, ids)
   local out = { "return {\n" }
   local function entry (e)

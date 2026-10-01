@@ -1,3 +1,5 @@
+-- SPDX-License-Identifier: MIT
+-- SPDX-FileCopyrightText: 2026 Birch Point SWE
 local specs = {
   { key = "lib", name = "my-lib" },
   { key = "web", name = "my-app" },

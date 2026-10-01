@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# SPDX-FileCopyrightText: 2026 Birch Point SWE
 import re, sys, os
 sys.path.insert(0, os.path.expanduser("~/tmp/logo-concepts/r2"))
 from tt import TT

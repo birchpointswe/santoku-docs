@@ -1,4 +1,6 @@
 #!/bin/sh
+# SPDX-License-Identifier: MIT
+# SPDX-FileCopyrightText: 2026 Birch Point SWE
 set -eu
 
 unset LUAROCKS_SYSCONFDIR LUAROCKS_CONFIG LUA_PATH LUA_CPATH LUA_INIT || true

@@ -1,3 +1,5 @@
+-- SPDX-License-Identifier: MIT
+-- SPDX-FileCopyrightText: 2026 Birch Point SWE
 local function slug (s)
   local out = string.lower(s or "")
   out = string.gsub(out, "[^%w]+", "-")
