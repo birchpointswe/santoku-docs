@@ -446,7 +446,9 @@ return "done"
         "or none; full by default), and the bm25 parameters k1 (1.2) and b (0.75). Keep ",
         "the defaults unless your own judged queries show a better pair. Ids may be text; fts keeps a mapping table because FTS5 ",
         "keys on an integer rowid. Values must be an fvec. Prefer word tokens over ",
-        "character n-grams.",
+        "character n-grams. When queries and documents use different words for the same ",
+        "thing, keep the top 100 hits as candidates and rerank them with an embedding model ",
+        "through santoku.learn.retrieval.rerank; the santoku-learn-llama tab shows the full recipe.",
       }),
       code = [[
 local sqlite = require("santoku.sqlite.db")
