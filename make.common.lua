@@ -64,7 +64,7 @@ return {
   env = {
 
     name = "santoku-docs",
-    version = "0.0.6-1",
+    version = "0.0.7-1",
     license = "MIT",
     copyright = "Birch Point SWE",
     vendored = {
