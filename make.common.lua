@@ -64,7 +64,7 @@ return {
   env = {
 
     name = "santoku-docs",
-    version = "0.0.8-1",
+    version = "0.0.9-1",
     license = "MIT",
     copyright = "Birch Point SWE",
     vendored = {
@@ -164,9 +164,9 @@ return {
       test = {
         dependencies = {
           "santoku >= 2.5.0, < 3.0.0",
-          "santoku-make >= 5.3.1, < 6.0.0",
+          "santoku-make >= 5.6.0, < 6.0.0",
           "santoku-bundle >= 2.1.1, < 3.0.0",
-          "santoku-cli >= 2.16.0, < 3.0.0",
+          "santoku-cli >= 2.18.1, < 3.0.0",
           "santoku-fs >= 2.1.3, < 3.0.0",
           "santoku-web >= 2.2.3, < 3.0.0",
           "santoku-http >= 2.0.0, < 3.0.0",

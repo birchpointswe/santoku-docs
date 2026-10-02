@@ -1062,7 +1062,7 @@ client = {
       runnable = false,
       code = [[
 client = {
-  stable = { "llms.txt", "llms-full.txt" },
+  stable = { "feed.xml", "press-kit.zip" },
   check_links = { allow = { "^/api/" } },
   sitemap = "https://example.com",
 },
