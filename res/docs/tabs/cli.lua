@@ -33,6 +33,7 @@ return {
       runnable = false,
       code = [[
 toku init       Initialize a new project
+toku license    Write LICENSE and per-file SPDX headers from make.lua's license and copyright
 toku test       Run tests
 toku install    Install the project
 toku pack       Build rockspec and tarball without releasing
@@ -60,7 +61,11 @@ toku luac       Run the resolved luac
         "(which must match ^[a-z][a-z0-9-]*$), and runs git init. --here uses the ",
         "current directory and its name; --dir picks the destination. The scaffold is a ",
         "working rock, not a stub: a sqlite-backed library with a migration, a C ",
-        "extension (capi.c), a bin/ entry point, and a passing spec suite.",
+        "extension (capi.c), a bin/ entry point, and a passing spec suite. ",
+        "--license ID --copyright HOLDER sets both fields in make.lua and writes LICENSE ",
+        "and SPDX headers. --copyright alone writes a one-line all-rights-reserved ",
+        "LICENSE. With neither flag, as below, the scaffold has no LICENSE and no license ",
+        "field, and toku warns.",
       }),
       runnable = false,
       code = [[
@@ -74,7 +79,6 @@ Next steps:
 
 $ find my-lib -type f -not -path "*/.git/*" | sort
 my-lib/.gitignore
-my-lib/LICENSE
 my-lib/bin/my-lib.lua
 my-lib/lib/my_lib.tk.lua
 my-lib/lib/my_lib/capi.c
@@ -96,9 +100,10 @@ my-lib/test/spec/my_lib.lua
       code = [[
 local env = {
   name = "santoku-cli",
-  version = "2.15.0-1",
+  version = "2.18.1-1",
   variable_prefix = "TK_CLI",
   license = "MIT",
+  copyright = "Birch Point SWE",
   public = true,
   dependencies = {
     "lua == 5.1",
@@ -108,7 +113,7 @@ local env = {
     "santoku-bundle >= 2.0.0, < 3.0.0",
     "santoku-system >= 2.0.0, < 3.0.0",
     "santoku-test-runner >= 2.0.3, < 3.0.0",
-    "santoku-make >= 5.2.0, < 6.0.0",
+    "santoku-make >= 5.5.0, < 6.0.0",
     "argparse >= 0.7.1-1, < 1.0.0",
   },
 }
@@ -119,6 +124,37 @@ env.download = env.homepage .. "/releases/download/"
 print(env.name, env.version)
 print(env.download)
 return { env = env }
+]],
+    },
+
+    {
+      title = "toku license: LICENSE and SPDX headers",
+      desc = table.concat({
+        "Writes LICENSE and a two-line SPDX header (SPDX-License-Identifier, ",
+        "SPDX-FileCopyrightText) into every tracked source file, from make.lua's license ",
+        "and copyright. The header uses the file's own comment syntax and goes after any ",
+        "shebang or tk directive. LICENSE holds the license text, fetched from the SPDX ",
+        "license list, then one section per vendored entry. A stale header is replaced; a ",
+        "file that already carries another notice is left alone and reported. --check ",
+        "writes and fetches nothing, prints each problem and exits nonzero. --license, ",
+        "--copyright and --exclude override make.lua, and --year defaults to the year of ",
+        "the first commit. Name files to limit the run. copyright alone writes a one-line ",
+        "all-rights-reserved LICENSE and no headers; with neither set, nothing is written ",
+        "and toku warns. The make tab covers the vendored and license_exclude keys.",
+      }),
+      runnable = false,
+      code = [[
+$ toku license --check
+toku license: LICENSE doesn't name 2023 Birch Point SWE
+toku license: lib/my_lib/capi.c: missing header
+
+$ toku license
+lib/my_lib/capi.c: added a header
+LICENSE written for 2023 Birch Point SWE
+
+$ head -2 lib/my_lib/capi.c
+// SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: 2023 Birch Point SWE
 ]],
     },
 

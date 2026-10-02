@@ -48,7 +48,6 @@ Next steps:
 
 $ find my-api -type f -not -path "*/.git/*" | sort
 my-api/.gitignore
-my-api/LICENSE
 my-api/make.lua
 my-api/res/server/migrations/0.0.1.sql
 my-api/server/lib/my_api/db.tk.lua

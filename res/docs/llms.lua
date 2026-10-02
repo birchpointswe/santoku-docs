@@ -22,7 +22,7 @@ local function render (content, site)
   local push = pusher(out)
   preamble(push, content)
   push("## Full reference\n\n")
-  push("This file is an index. ", site, "/llms-full.txt carries every page in full, ",
+  push("This file is the index, at ", site, "/llms.txt. ", site, "/llms-full.txt carries every page in full, ",
     "including every documented example with its code. Read it before inferring an ",
     "API from surrounding code.\n\n")
   push("## Agent skills\n\n")
@@ -63,6 +63,10 @@ local function render_full (content, site)
   local out = {}
   local push = pusher(out)
   preamble(push, content)
+  push("## Files\n\n")
+  push("This file is the full reference, at ", site, "/llms-full.txt. ", site,
+    "/llms.txt is the index of the same pages. ", site, "/AGENTS.md and ", site,
+    "/skills.txt carry the agent skills.\n")
   for i = 1, #content.tabs do
     local tab = content.tabs[i]
     if tab.content then

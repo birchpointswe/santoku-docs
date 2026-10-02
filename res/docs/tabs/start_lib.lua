@@ -138,7 +138,6 @@ Next steps:
 
 $ find my-lib -type f -not -path "*/.git/*" | sort
 my-lib/.gitignore
-my-lib/LICENSE
 my-lib/bin/my-lib.lua
 my-lib/lib/my_lib.tk.lua
 my-lib/lib/my_lib/capi.c

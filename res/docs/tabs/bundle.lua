@@ -193,7 +193,9 @@ return "every module classified as lua or c"
         "A C module cannot be merged as source. Instead bundle derives its luaopen ",
         "symbol (dots swapped for underscores), declares it in the generated C, ",
         "registers it in package.preload before the entry runs, and appends the ",
-        "resolved shared object to the compile command.",
+        "resolved shared object to the compile command. When a .requires file sits next ",
+        "to a C module, bundle adds each module it lists, so a C module's C-level ",
+        "dependencies come along without being listed by hand.",
       }),
       code = [[
 local str = require("santoku.string")

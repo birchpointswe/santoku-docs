@@ -692,7 +692,10 @@ return (strip.strip_html("<div>a<!-- c -->b</div>"))
         "input unchanged with bailed true. Third, a leading license head (a comment run ",
         "containing Copyright, SPDX-License-Identifier, or a permission notice) passes ",
         "through untouched before stripping starts, and losing a notice anywhere else ",
-        "bails rather than deleting it.",
+        "bails rather than deleting it. strip.license_at(src, filename, lines) is the ",
+        "writing side: it wraps lines in the file's comment syntax and returns that text ",
+        "with the byte position it belongs at, after any shebang or tk directive, or nil ",
+        "for a language strip doesn't know. toku license uses it.",
       }),
       code = [[
 local strip = require("santoku.lpeg.strip")

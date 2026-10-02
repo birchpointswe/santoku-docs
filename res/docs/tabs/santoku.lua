@@ -242,7 +242,10 @@ return str.format_number(1234567.89)
         "The C core merged into santoku.string covers SHA-256 digests, hex, ",
         "base64 (plain and URL-safe), percent-encoding, parsing a number out ",
         "of the middle of a string, and utf8_char, which encodes codepoints as UTF-8 ",
-        "and raises on a surrogate or anything past U+10FFFF.",
+        "and raises on a surrogate or anything past U+10FFFF. utf8_next(s, i) returns the ",
+        "codepoint at byte i and its width in bytes, utf8_len(s) counts codepoints, and ",
+        "utf8_lower and utf8_fold lowercase and case-fold with the Unicode tables; each ",
+        "returns nothing on invalid UTF-8.",
       }),
       code = [[
 local str = require("santoku.string")
@@ -522,7 +525,10 @@ return msg
       desc = table.concat({
         "Epoch seconds in and out (optionally sub-second), broken-down UTC ",
         "dates, strftime formatting, calendar-aware shift and trunc, and a ",
-        "stopwatch closure for quick timings.",
+        "stopwatch closure for quick timings. When local time is needed, local_time(fields) ",
+        "reads broken-down local time as epoch seconds and local_offset(t) gives the local ",
+        "UTC offset in seconds. days_from_civil, civil_from_days and weekday convert ",
+        "between dates and day numbers.",
       }),
       code = [[
 local utc = require("santoku.utc")
@@ -632,8 +638,10 @@ return restored.name
       desc = table.concat({
         "santoku.co builds tagged coroutine sets that nest without stealing ",
         "each other's yields, inherit manages __index chains, geo does planar ",
-        "and great-circle math, and env reads variables with defaults. bench, ",
-        "test, and tracer cover timing and test scripts.",
+        "and great-circle math, and env reads variables with defaults. ",
+        "env.with_paths(path, cpath, fn, ...) runs fn with package.path and package.cpath ",
+        "swapped, then restores both even when fn raises; env.path() and env.cpath() read ",
+        "the current values. bench, test, and tracer cover timing and test scripts.",
       }),
       code = [[
 local inherit = require("santoku.inherit")

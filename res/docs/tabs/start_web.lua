@@ -15,7 +15,7 @@ return {
     "project before changing anything. ",
     "The example project is called my-app. ",
     "What it scaffolds is a working todo app with a client-side SQLite database, tag ",
-    "parsing, JSON export and a real sync endpoint, in nineteen files.",
+    "parsing, JSON export and a real sync endpoint, in eighteen files.",
   }),
 
   examples = {
@@ -193,7 +193,6 @@ Next steps:
 
 $ find my-app -type f -not -path "*/.git/*" | sort
 my-app/.gitignore
-my-app/LICENSE
 my-app/client/bin/bundle.lua
 my-app/client/lib/my-app/db.tk.lua
 my-app/client/lib/my-app/main.lua

@@ -10,7 +10,7 @@ return {
     "surface is three constructors (create, embedder, generator) and five methods ",
     "across two object types; the modelling that consumes the embeddings lives in ",
     "santoku-learn, including the retrieval rerank. The binding links a statically ",
-    "built llama.cpp (vendored at a pinned commit) with OpenMP and BLAS/LAPACK, and ",
+    "built llama.cpp (vendored at a pinned commit) with OpenMP, and ",
     "needs a gguf model file at runtime. This page doesn't ship models, and nothing ",
     "on it can run in the browser: every example is ",
     "display-only, mirrored from the repo's regress ",
@@ -350,7 +350,7 @@ print("greedy is deterministic:", greedy == g:generate("Once upon a time"))
       title = "what it takes to run",
       desc = table.concat({
         "The rock builds against a vendored llama.cpp pinned by commit and links its ",
-        "static archives with OpenMP, BLAS/LAPACK, and libstdc++; at runtime you ",
+        "static archives with OpenMP and libstdc++; at runtime you ",
         "supply a gguf model file. The regress suites are benchmarks: they read ",
         "LLAMA_MODEL (embedders), LLAMA_RETRIEVAL_MODEL (retrieval), or LLAMA_GEN_MODEL ",
         "(generator) and skip when unset, and the classification and retrieval suites ",

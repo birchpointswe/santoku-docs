@@ -171,7 +171,6 @@ Next steps:
 
 $ find my-lib -type f -not -path "*/.git/*"
 my-lib/.gitignore
-my-lib/LICENSE
 my-lib/make.lua
 my-lib/bin/my-lib.lua
 my-lib/lib/my_lib.tk.lua
@@ -198,6 +197,7 @@ local descriptor = {
     name = "my-lib",
     version = "0.0.1-1",
     license = "MIT",
+    copyright = "Your Name",
     public = true,
     dependencies = {
       "lua == 5.1",
@@ -213,6 +213,51 @@ print("rockspec:", env.name .. "-" .. env.version .. ".rockspec")
 print("runtime deps:", #env.dependencies)
 print("test-only deps:", #env.test.dependencies)
 return env.name
+]],
+    },
+
+    {
+      title = "License notices: copyright, vendored, license_exclude",
+      desc = table.concat({
+        "toku license reads these keys. copyright is the holder named in LICENSE and in ",
+        "every SPDX header. license_exclude lists path globs for generated files that get ",
+        "no header. vendored has one entry per piece of third-party code: name and license ",
+        "are required; version is optional; path is a glob or list of globs for code in ",
+        "the repo; source is the URL of code fetched at build time, required when there is ",
+        "no path; copyright is a string or a list; text replaces the fetched SPDX text, for ",
+        "code with no SPDX id; note is a paragraph after the license text. Globs follow ",
+        "REUSE: * stays inside one directory, ** crosses directories. Vendored paths get no ",
+        "header, and each entry gets its own LICENSE section. check and apply fail when a ",
+        "tracked file under a vendor, vendored, third_party or third-party directory ",
+        "matches no vendored path or exclude, when a path glob matches no tracked file, or ",
+        "when an entry's LICENSE label would match a different entry.",
+      }),
+      code = [[
+local env = {
+  name = "my-lib",
+  version = "0.0.1-1",
+  license = "MIT",
+  copyright = "Your Name",
+  license_exclude = { "src/parser.c" },
+  vendored = {
+    {
+      name = "LPeg", version = "1.1.0",
+      path = { "lib/my_lib/lp*", "lib/my_lib/grammar.lua" },
+      copyright = "(C) 2007-2023 Lua.org, PUC-Rio.",
+      license = "MIT",
+      note = "Renamed for coexistence with an external lpeg.",
+    },
+    {
+      name = "SQLite", version = "3.49.2",
+      source = "https://www.sqlite.org/2025/sqlite-amalgamation-3490200.zip",
+      license = "blessing",
+    },
+  },
+}
+for _, c in ipairs(env.vendored) do
+  print(c.name, c.path and "vendors" or "links", c.license)
+end
+return #env.vendored
 ]],
     },
 
@@ -412,7 +457,10 @@ return m.config.env.name
         "own configure, as santoku-sqlite does. The results.mk rule must list Makefile ",
         "as a prerequisite, or editing the Makefile would rebuild nothing, so the build ",
         "stops with an error when it doesn't. Objects compile with -MMD -MP, so editing ",
-        "a header recompiles every object that includes it.",
+        "a header recompiles every object that includes it. Each C module also gets a ",
+        ".requires file listing the other C modules whose headers it includes and whose ",
+        "names appear in its object; it installs next to the module, and santoku-bundle ",
+        "reads it.",
       }),
       runnable = false,
       code = [[
@@ -997,6 +1045,26 @@ client = {
       html = lp.minify_html,
     },
   },
+},
+]],
+    },
+
+    {
+      title = "Stable names, link checks, and a sitemap",
+      desc = table.concat({
+        "client.stable lists public files that also ship under their own unhashed names, ",
+        "for URLs other sites link to; each must be in the hash manifest. ",
+        "client.check_links = true fails the build when a shipped page links to a page or ",
+        "asset that doesn't exist; { allow = { ... } } takes Lua patterns for links to ",
+        "let through. client.sitemap = \"https://example.com\" writes sitemap.xml for that ",
+        "site and ships it under its own name.",
+      }),
+      runnable = false,
+      code = [[
+client = {
+  stable = { "llms.txt", "llms-full.txt" },
+  check_links = { allow = { "^/api/" } },
+  sitemap = "https://example.com",
 },
 ]],
     },
