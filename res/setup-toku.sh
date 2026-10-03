@@ -14,9 +14,11 @@ LUAROCKS_SHA256=245bf6ec560c042cb8948e3d661189292587c5949104677f1eecddc54dbe7e37
 
 ROOT="${XDG_DATA_HOME:-$HOME/.local/share}/toku"
 REBUILD=0
+CLI_PIN="${TOKU_CLI_VERSION:-}"
 
 usage () {
-  printf 'usage: sh setup-toku.sh [--root DIR] [--rebuild]\n'
+  printf 'usage: sh setup-toku.sh [--root DIR] [--rebuild] [--cli-version VERSION]\n'
+  printf '  --cli-version, or TOKU_CLI_VERSION, installs that santoku-cli version; the flag wins\n'
 }
 
 say () {
@@ -38,6 +40,11 @@ while [ $# -gt 0 ]; do
     --rebuild)
       REBUILD=1
       ;;
+    --cli-version)
+      [ $# -ge 2 ] || die "--cli-version needs a santoku-cli version"
+      CLI_PIN="$2"
+      shift
+      ;;
     -h|--help)
       usage
       exit 0
@@ -49,6 +56,10 @@ while [ $# -gt 0 ]; do
   esac
   shift
 done
+
+case "$CLI_PIN" in
+  *[!0-9A-Za-z.-]*) die "santoku-cli version may hold only digits, letters, . and -: $CLI_PIN" ;;
+esac
 
 SRC="$ROOT/src"
 MANIFEST="$ROOT/manifest.lua"
@@ -266,13 +277,33 @@ for lock in "$ROOT/rocks/lockfile.lfs" "$ROOT/rocks/lib/luarocks/lockfile.lfs"; 
   fi
 done
 
+installed_cli () {
+  [ -x "$ROOT/rocks/bin/toku" ] || return 0
+  v="$("$ROOT/rocks/bin/toku" --version 2>/dev/null | awk '{print $2}')"
+  case "$CLI_PIN" in
+    *-*) printf '%s' "$v" ;;
+    *) printf '%s' "${v%-*}" ;;
+  esac
+}
+
+INSTALL_CLI=0
 if [ "$REBUILD" -eq 1 ] || [ ! -x "$ROOT/rocks/bin/toku" ]; then
-  say "installing santoku-cli into $ROOT/rocks"
+  INSTALL_CLI=1
+elif [ -n "$CLI_PIN" ] && [ "$(installed_cli)" != "$CLI_PIN" ]; then
+  INSTALL_CLI=1
+fi
+
+if [ "$INSTALL_CLI" -eq 1 ]; then
+  say "installing santoku-cli${CLI_PIN:+ $CLI_PIN} into $ROOT/rocks"
   (cd "$ROOT" &&
     PATH="$ROOT/rocks/bin:$ROOT/luarocks/bin:$ROOT/lua/bin:$PATH" \
     LUAROCKS_CONFIG="$CFG" \
-    "$ROOT/luarocks/bin/luarocks" install santoku-cli)
+    "$ROOT/luarocks/bin/luarocks" install santoku-cli ${CLI_PIN:+"$CLI_PIN"})
   [ -x "$ROOT/rocks/bin/toku" ] || die "santoku-cli install did not produce $ROOT/rocks/bin/toku"
+fi
+
+if [ -n "$CLI_PIN" ] && [ "$(installed_cli)" != "$CLI_PIN" ]; then
+  die "santoku-cli $CLI_PIN was requested, but $ROOT/rocks/bin/toku reports $(installed_cli)"
 fi
 
 CLI_VERSION="$("$ROOT/rocks/bin/toku" --version 2>/dev/null | awk '{print $2}')"

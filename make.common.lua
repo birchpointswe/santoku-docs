@@ -64,9 +64,10 @@ return {
   env = {
 
     name = "santoku-docs",
-    version = "0.0.11-1",
+    version = "0.0.12-1",
     license = "MIT",
     copyright = "Birch Point SWE",
+    license_exclude = { "client/static/setup-toku.tk.sh" },
     vendored = {
       {
         name = "Tailwind CSS theme.css",

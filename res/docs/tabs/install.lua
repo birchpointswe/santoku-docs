@@ -59,6 +59,30 @@ no problems found
     },
 
     {
+      title = "Pin the santoku-cli version",
+      desc = table.concat({
+        "setup-toku.sh installs the newest santoku-cli unless told otherwise. ",
+        "--cli-version VERSION, or the TOKU_CLI_VERSION environment variable, installs ",
+        "that version instead; the flag wins when both are set. A rerun reinstalls when ",
+        "the installed toku reports a different version, and setup fails if toku still ",
+        "reports another version afterwards. A version without a revision, such as ",
+        "2.19.0, matches any revision. In a container build, pass the version as a build ",
+        "argument, so changing the pin rebuilds that layer.",
+      }),
+      runnable = false,
+      lang = "text",
+      code = [[
+$ sh setup-toku.sh --cli-version 2.19.0-1
+$ TOKU_CLI_VERSION=2.19.0-1 sh setup-toku.sh
+
+# Dockerfile
+ARG TOKU_CLI_VERSION=2.19.0-1
+RUN curl -fsSL -o /tmp/setup-toku.sh https://santoku.dev/setup-toku.sh \
+ && sh /tmp/setup-toku.sh --cli-version "$TOKU_CLI_VERSION"
+]],
+    },
+
+    {
       title = "What the managed toolchain is, and how toku uses it",
       desc = table.concat({
         "Until setup has run, every command that needs lua or luarocks (toku lua, ",
