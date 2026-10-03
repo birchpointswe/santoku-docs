@@ -162,7 +162,7 @@ local train_codes = enc:encode(pair_texts(lefts, rights, #lefts))
       title = "extreme multi-label: same embedder, bigger k",
       desc = table.concat({
         "For thousands of labels the embedder's role is unchanged: produce the dense ",
-        "codes. The eurlex57k regress suite drives optimize.krr with a Matern kernel ",
+        "codes. The eurlex57k regress suite drives optimize.krr with the RBF kernel (nu 3) ",
         "and k = 256, labels the test split through the deploy encoder, and the decider ",
         "applies a calibrated threshold over the ranked labels. With search_trials = 0 ",
         "a multi-label run needs a pinned decode_offset, and krr raises without one. ",
@@ -183,7 +183,6 @@ local _, ridge_obj, deploy, best, decider = optimize.krr({
   pool_labels = train.labels,
   n_labels = train.n_labels,
   folds = 3,
-  kernel = { "matern" },
   nu = { def = 3 },
   gamma = { def = 1.10565 },
   lambda = { def = 5.23323e-06 },

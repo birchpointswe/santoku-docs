@@ -230,7 +230,9 @@ return env.name
         "header, and each entry gets its own LICENSE section. check and apply fail when a ",
         "tracked file under a vendor, vendored, third_party or third-party directory ",
         "matches no vendored path or exclude, when a path glob matches no tracked file, or ",
-        "when an entry's LICENSE label would match a different entry.",
+        "when an entry's LICENSE label would match a different entry. check also fails on ",
+        "a license_exclude entry that matches no tracked file, or that starts with ^ or ",
+        "contains %, since those are Lua pattern syntax and never match as globs.",
       }),
       code = [[
 local env = {

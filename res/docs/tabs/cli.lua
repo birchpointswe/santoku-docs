@@ -100,7 +100,7 @@ my-lib/test/spec/my_lib.lua
       code = [[
 local env = {
   name = "santoku-cli",
-  version = "2.18.1-1",
+  version = "2.19.0-1",
   variable_prefix = "TK_CLI",
   license = "MIT",
   copyright = "Birch Point SWE",
@@ -113,7 +113,7 @@ local env = {
     "santoku-bundle >= 2.0.0, < 3.0.0",
     "santoku-system >= 2.0.0, < 3.0.0",
     "santoku-test-runner >= 2.0.3, < 3.0.0",
-    "santoku-make >= 5.5.0, < 6.0.0",
+    "santoku-make >= 5.7.0, < 6.0.0",
     "argparse >= 0.7.1-1, < 1.0.0",
   },
 }
@@ -317,6 +317,29 @@ $ toku install
 $ toku install --skip-tests
 $ find ~/git/myapp/build -name luarocks.lua \
     -exec toku install --luarocks-config {} --skip-tests \;
+]],
+    },
+
+    {
+      title = "--deps-only: cache dependencies in their own image layer",
+      desc = table.concat({
+        "toku install --deps-only and toku build --deps-only read only the descriptor ",
+        "(make.lua and whatever it runfiles) and install the dependencies it declares into ",
+        "the same trees the full build uses: the rocks tree for a library, and the server ",
+        "and client trees for a web project, plus each local dep's own dependencies. No ",
+        "project source is read or compiled. A later full build finds every dependency ",
+        "installed and builds only the project. In a container build, copy the ",
+        "descriptor files first, run the deps-only step, then copy the rest, so a source ",
+        "change reuses the cached dependency layer. Copy each local dep's make.lua too, ",
+        "and keep the descriptor free of reads from other project files.",
+      }),
+      runnable = false,
+      code = [[
+COPY make.lua make.common.lua ./
+COPY submodules/my-lib/make.lua submodules/my-lib/
+RUN toku build --env prod --deps-only
+COPY . .
+RUN toku build --env prod
 ]],
     },
 

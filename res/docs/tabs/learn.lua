@@ -474,7 +474,7 @@ local spectral = require("santoku.learn.spectral")
 local ds = require("santoku.learn.dataset")
 local texts = ds.read_imdb("test/res/imdb.50k", 500).problems
 local f = retrieval.featurizer({ ngram_min = 4, ngram_max = 4, texts = texts })
-local _, enc = spectral.encode({ x = f.X, n_landmarks = 256, kernel = "cosine" })
+local _, enc = spectral.encode({ x = f.X, n_landmarks = 256 })
 local C = enc:encode(f.X)
 C:normalize()
 local mu = C:center()
@@ -524,7 +524,7 @@ local R = rank(1.2, 0.75, 100)
 local _, lexical_ndcg = R:ndcg(d.qrels, 10)
 print("bm25 ndcg@10:", lexical_ndcg)
 local f = retrieval.featurizer({ ngram_min = 4, ngram_max = 4, texts = d.corpus_texts })
-local _, enc = spectral.encode({ x = f.X, n_landmarks = 256, kernel = "cosine" })
+local _, enc = spectral.encode({ x = f.X, n_landmarks = 256 })
 local D = enc:encode(f.X)
 D:normalize()
 local mu = D:center()
@@ -572,7 +572,7 @@ local X, Q = retrieval.lexical({
 })
 local R = retrieval.bm25_ranker(X, Q)(lex.k1, lex.b, 100)
 local f = retrieval.featurizer({ ngram_min = 4, ngram_max = 4, texts = d.corpus_texts })
-local _, enc = spectral.encode({ x = f.X, n_landmarks = 256, kernel = "cosine" })
+local _, enc = spectral.encode({ x = f.X, n_landmarks = 256 })
 local D = enc:encode(f.X)
 D:normalize()
 local mu = D:center()
@@ -597,7 +597,12 @@ return best.alpha
       desc = table.concat({
         "The supervised path on the IMDB sentiment corpus: tokenize byte and word ",
         "blocks, encode, solve ridge, score through a calibrated decider, then persist ",
-        "the whole deployment as one bundle and reload it. The full pipeline this ",
+        "the whole deployment as one bundle and reload it. nu picks the kernel: 0, 1 ",
+        "and 2 are Matern 1/2, 3/2 and 5/2, 3 is RBF, and 4 is cosine, the default for ",
+        "spectral.encode. nu = 4 fixes cosine; nu = { def = 4 } starts there and lets the ",
+        "search choose among all five along with gamma. A block whose x is a dense mtx ",
+        "is mean-centered by the encoder; csr blocks aren't. Encoders save in format 33, ",
+        "and files from santoku-learn 4.x don't load. The full pipeline this ",
         "distills: ",
         "https://github.com/birchpointswe/lua-santoku-learn/blob/master/test/spec/santoku/learn/regress/imdb.lua",
       }),
@@ -623,7 +628,7 @@ local enc, ridge, deploy, best, decider = optimize.krr({
   n_labels = 1,
   relevance = { "bns", "bns" },
   n_landmarks = 1024 * 8,
-  kernel = { "cosine" },
+  nu = { def = 4 },
   lambda = { def = 0.025 },
   k = 1,
   decode_offset = { def = 0.49393576 },
@@ -695,7 +700,6 @@ local enc, ridge, deploy, best, decider = optimize.krr({
   cand = C,
   gold = pool.gold,
   n_landmarks = 1024 * 8,
-  kernel = { "matern" },
   decode_offset = { def = -0.56368208 },
   search_trials = 0,
   folds = 5,
@@ -744,7 +748,6 @@ local enc, ridge, deploy = optimize.krr({
   n_targets = 1,
   pool_n = train.n,
   n_landmarks = 1024 * 8,
-  kernel = { "matern" },
   nu = { def = 0 },
   gamma = { def = 0.94 },
   lambda = { def = 0.0002 },
@@ -798,7 +801,6 @@ local _, ridge, deploy, _, decider = optimize.krr({
   pool_class = train.labels:neighbors(),
   n_labels = 2,
   n_landmarks = 1024 * 8,
-  kernel = { "matern" },
   nu = { def = 0 },
   gamma = { def = 0.33884277 },
   lambda = { def = 0.0044132295 },
