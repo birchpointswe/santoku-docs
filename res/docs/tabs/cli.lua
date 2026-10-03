@@ -331,12 +331,13 @@ $ find ~/git/myapp/build -name luarocks.lua \
         "installed and builds only the project. In a container build, copy the ",
         "descriptor files first, run the deps-only step, then copy the rest, so a source ",
         "change reuses the cached dependency layer. Copy each local dep's make.lua too, ",
-        "and keep the descriptor free of reads from other project files.",
+        "plus every file any of these descriptors runfiles, and keep them free of reads ",
+        "from other project files.",
       }),
       runnable = false,
       code = [[
 COPY make.lua make.common.lua ./
-COPY submodules/my-lib/make.lua submodules/my-lib/
+COPY submodules/my-lib/make.lua submodules/my-lib/make.common.lua submodules/my-lib/
 RUN toku build --env prod --deps-only
 COPY . .
 RUN toku build --env prod
