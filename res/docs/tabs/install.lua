@@ -83,6 +83,28 @@ RUN curl -fsSL -o /tmp/setup-toku.sh https://santoku.dev/setup-toku.sh \
     },
 
     {
+      title = "Managed OpenResty for web projects",
+      desc = table.concat({
+        "--resty (or toku setup --resty) also builds a pinned OpenResty into ",
+        "~/.local/share/toku/openresty, with openssl, pcre2 and zlib built from pinned ",
+        "sources and linked statically. Every download is sha256-checked. The build needs ",
+        "perl and patch, takes several minutes, and on Android needs patchelf. Later runs ",
+        "keep it, since the manifest records it. toku puts its bin directory on its own ",
+        "PATH and sets OPENRESTY_DIR to it when that variable is unset, so toku build, ",
+        "start and test use it; an explicit OPENRESTY_DIR still wins. toku resty runs the ",
+        "resty script, toku openresty passes arguments to the nginx binary, and toku ",
+        "doctor checks the version and that it starts.",
+      }),
+      runnable = false,
+      lang = "text",
+      code = [[
+$ sh setup-toku.sh --resty
+$ toku openresty -v
+$ toku resty -e 'ngx.say(ngx.config.nginx_version)'
+]],
+    },
+
+    {
       title = "What the managed toolchain is, and how toku uses it",
       desc = table.concat({
         "Until setup has run, every command that needs lua or luarocks (toku lua, ",

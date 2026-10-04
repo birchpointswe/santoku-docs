@@ -51,6 +51,8 @@ toku skills     Install the santoku agent skills from santoku.dev into your home
 toku doctor     Diagnose the managed toolchain and PATH wiring
 toku luarocks   Run the managed luarocks
 toku luac       Run the resolved luac
+toku resty      Run the managed OpenResty resty script
+toku openresty  Run the managed OpenResty nginx binary
 ]],
     },
 

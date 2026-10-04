@@ -11,13 +11,30 @@ LUA_SHA256=2640fc56a795f29d28ef15e13c34a47e223960b0240e8cb0a82d9b0738695333
 LUAROCKS_VERSION=3.13.0
 LUAROCKS_URL=https://luarocks.github.io/luarocks/releases/luarocks-3.13.0.tar.gz
 LUAROCKS_SHA256=245bf6ec560c042cb8948e3d661189292587c5949104677f1eecddc54dbe7e37
+OPENRESTY_VERSION=1.31.1.1
+OPENRESTY_URL=https://openresty.org/download/openresty-1.31.1.1.tar.gz
+OPENRESTY_SHA256=65b78baadd3f0984055de89bf13f4a1932e5bfe9c31932037a134ea2b1a0ce42
+OPENSSL_VERSION=3.5.8
+OPENSSL_URL=https://github.com/openssl/openssl/releases/download/openssl-3.5.8/openssl-3.5.8.tar.gz
+OPENSSL_SHA256=a8f84a39918ec6415ce765d9b429d313ba97b8143169c172e734b9514464f5b2
+OPENSSL_PATCH=openssl-3.5.5-sess_set_get_cb_yield.patch
+OPENSSL_PATCH_URL=https://raw.githubusercontent.com/openresty/openresty/0de3defb207c5557f5be2fce7d6f1d696b637ede/patches/openssl-3.5.5-sess_set_get_cb_yield.patch
+OPENSSL_PATCH_SHA256=0a30cc762a9d72901e8415a33f7671bb68469d46121061e26afe7b718f47581e
+PCRE2_VERSION=10.48
+PCRE2_URL=https://github.com/PCRE2Project/pcre2/releases/download/pcre2-10.48/pcre2-10.48.tar.gz
+PCRE2_SHA256=ebcc25aadf2a51fa1fefa9b8bc9e7a79b3dae86870a0f1152a22e42befd46888
+ZLIB_VERSION=1.3.2
+ZLIB_URL=https://github.com/madler/zlib/releases/download/v1.3.2/zlib-1.3.2.tar.gz
+ZLIB_SHA256=bb329a0a2cd0274d05519d61c667c062e06990d72e125ee2dfa8de64f0119d16
 
 ROOT="${XDG_DATA_HOME:-$HOME/.local/share}/toku"
 REBUILD=0
+RESTY=0
 CLI_PIN="${TOKU_CLI_VERSION:-}"
 
 usage () {
-  printf 'usage: sh setup-toku.sh [--root DIR] [--rebuild] [--cli-version VERSION]\n'
+  printf 'usage: sh setup-toku.sh [--root DIR] [--rebuild] [--resty] [--cli-version VERSION]\n'
+  printf '  --resty builds the pinned OpenResty into the managed tree; later runs keep it\n'
   printf '  --cli-version, or TOKU_CLI_VERSION, installs that santoku-cli version; the flag wins\n'
 }
 
@@ -39,6 +56,9 @@ while [ $# -gt 0 ]; do
       ;;
     --rebuild)
       REBUILD=1
+      ;;
+    --resty)
+      RESTY=1
       ;;
     --cli-version)
       [ $# -ge 2 ] || die "--cli-version needs a santoku-cli version"
@@ -171,6 +191,50 @@ patch_luarocks () {
   grep -q 'vars\.LN \.\. " -s"' "$f" || die "luarocks lockfile patch did not apply"
 }
 
+patch_openresty () {
+  d="$SRC/openresty-$OPENRESTY_VERSION"
+  f="$d/bundle/nginx-1.31.1/src/event/modules/ngx_epoll_module.c"
+  [ -f "$f" ] || die "missing $f"
+  (cd "$d" && patch -p1) <<'EOF' || die "openresty epoll patch did not apply"
+--- a/bundle/nginx-1.31.1/src/event/modules/ngx_epoll_module.c
++++ b/bundle/nginx-1.31.1/src/event/modules/ngx_epoll_module.c
+@@ -591,16 +591,10 @@
+     if (event == NGX_READ_EVENT) {
+         e = c->write;
+         prev = EPOLLOUT;
+-#if (NGX_READ_EVENT != EPOLLIN|EPOLLRDHUP)
+-        events = EPOLLIN|EPOLLRDHUP;
+-#endif
+
+     } else {
+         e = c->read;
+         prev = EPOLLIN|EPOLLRDHUP;
+-#if (NGX_WRITE_EVENT != EPOLLOUT)
+-        events = EPOLLOUT;
+-#endif
+     }
+
+     if (e->active) {
+EOF
+  grep -q 'NGX_WRITE_EVENT != EPOLLOUT' "$f" && die "openresty epoll patch did not apply"
+  f="$d/bundle/resty-cli-0.32/bin/resty"
+  [ -f "$f" ] || die "missing $f"
+  (cd "$d" && patch -p1) <<'EOF' || die "resty tmp patch did not apply"
+--- a/bundle/resty-cli-0.32/bin/resty
++++ b/bundle/resty-cli-0.32/bin/resty
+@@ -626,7 +626,7 @@
+     mkdir $prefix_dir or die "failed to mkdir $prefix_dir: $!";
+
+ } else {
+-    if ($is_win32 || !-d '/tmp') {
++    if ($is_win32 || !-w '/tmp') {
+         require File::Temp;
+         $prefix_dir = File::Temp::tempdir(CLEANUP => 1);
+
+EOF
+  grep -q "!-w '/tmp'" "$f" || die "resty tmp patch did not apply"
+}
+
 for t in cc make tar unzip; do
   need "$t"
 done
@@ -199,11 +263,25 @@ if [ "$REBUILD" -eq 0 ] && [ -f "$MANIFEST" ] && grep -q 'mode = "managed"' "$MA
     { [ "$built_lua" != "$LUA_VERSION" ] || [ "$built_luarocks" != "$LUAROCKS_VERSION" ]; }; then
     die "managed tree was built from lua ${built_lua:-?} and luarocks ${built_luarocks:-?}, not the pinned $LUA_VERSION and $LUAROCKS_VERSION; rerun with --rebuild (from toku: toku setup --upgrade)"
   fi
+  built_resty="$(sed -n 's/^ *openresty = "\(.*\)",$/\1/p' "$MANIFEST")"
+  if [ -n "$built_resty" ] && [ "$built_resty" != "$OPENRESTY_VERSION" ]; then
+    die "managed tree was built with openresty $built_resty, not the pinned $OPENRESTY_VERSION; rerun with --rebuild (from toku: toku setup --upgrade)"
+  fi
+fi
+
+if [ -f "$MANIFEST" ] && grep -q '^ *openresty = ' "$MANIFEST"; then
+  RESTY=1
+fi
+
+if [ "$RESTY" -eq 1 ]; then
+  for t in patch perl; do
+    need "$t"
+  done
 fi
 
 if [ "$REBUILD" -eq 1 ]; then
   say "rebuilding toolchain, keeping $ROOT/rocks"
-  rm -rf "$ROOT/lua" "$ROOT/luarocks" "$SRC"
+  rm -rf "$ROOT/lua" "$ROOT/luarocks" "$ROOT/openresty" "$SRC"
   rm -f "$MANIFEST"
 fi
 
@@ -248,6 +326,52 @@ if [ ! -x "$ROOT/luarocks/bin/luarocks" ]; then
     make -f GNUmakefile all &&
     make -f GNUmakefile install)
   [ -x "$ROOT/luarocks/bin/luarocks" ] || die "luarocks build did not produce $ROOT/luarocks/bin/luarocks"
+fi
+
+if [ "$RESTY" -eq 1 ] && [ ! -x "$ROOT/openresty/bin/openresty" ]; then
+  fetch "openresty-$OPENRESTY_VERSION.tar.gz" "$OPENRESTY_URL" "$OPENRESTY_SHA256"
+  fetch "openssl-$OPENSSL_VERSION.tar.gz" "$OPENSSL_URL" "$OPENSSL_SHA256"
+  fetch "$OPENSSL_PATCH" "$OPENSSL_PATCH_URL" "$OPENSSL_PATCH_SHA256"
+  fetch "pcre2-$PCRE2_VERSION.tar.gz" "$PCRE2_URL" "$PCRE2_SHA256"
+  fetch "zlib-$ZLIB_VERSION.tar.gz" "$ZLIB_URL" "$ZLIB_SHA256"
+  extract "openresty-$OPENRESTY_VERSION"
+  patch_openresty
+  extract "openssl-$OPENSSL_VERSION"
+  extract "pcre2-$PCRE2_VERSION"
+  extract "zlib-$ZLIB_VERSION"
+  (cd "$SRC/openssl-$OPENSSL_VERSION" && patch -p1 < "$SRC/$OPENSSL_PATCH") ||
+    die "openssl patch $OPENSSL_PATCH did not apply"
+  JOBS="$(getconf _NPROCESSORS_ONLN 2>/dev/null || printf 1)"
+  say "building openresty $OPENRESTY_VERSION with openssl $OPENSSL_VERSION, pcre2 $PCRE2_VERSION, zlib $ZLIB_VERSION ($PLAT)"
+  (cd "$SRC/openresty-$OPENRESTY_VERSION" &&
+    ./configure "--prefix=$ROOT/openresty" \
+      "--with-cc-opt=-O2 -DMAXNS=3" \
+      --with-pcre-jit \
+      "--with-openssl=$SRC/openssl-$OPENSSL_VERSION" \
+      "--with-pcre=$SRC/pcre2-$PCRE2_VERSION" \
+      "--with-zlib=$SRC/zlib-$ZLIB_VERSION" \
+      "-j$JOBS" &&
+    make "-j$JOBS" &&
+    make install)
+  [ -x "$ROOT/openresty/bin/openresty" ] || die "openresty build did not produce $ROOT/openresty/bin/openresty"
+fi
+
+if [ "$RESTY" -eq 1 ]; then
+  if [ "$(uname -o 2>/dev/null)" = Android ]; then
+    need patchelf
+    NGINX_BIN="$ROOT/openresty/nginx/sbin/nginx"
+    LJ_LIB="$ROOT/openresty/luajit/lib"
+    RP="$(patchelf --print-rpath "$NGINX_BIN")"
+    case "$RP" in
+      "$LJ_LIB":*) ;;
+      *)
+        say "putting $LJ_LIB first in nginx's runpath, ahead of the system libluajit"
+        patchelf --set-rpath "$LJ_LIB:$RP" "$NGINX_BIN"
+        ;;
+    esac
+  fi
+  "$ROOT/openresty/bin/openresty" -v >/dev/null 2>&1 ||
+    die "$ROOT/openresty/bin/openresty does not run; check its output with: $ROOT/openresty/bin/openresty -v"
 fi
 
 CFG="$ROOT/luarocks/etc/luarocks/config-5.1.lua"
@@ -309,12 +433,23 @@ fi
 CLI_VERSION="$("$ROOT/rocks/bin/toku" --version 2>/dev/null | awk '{print $2}')"
 [ -n "$CLI_VERSION" ] || CLI_VERSION=unknown
 
-printf 'return {\n  cli = "%s",\n  created = "%s",\n  lua = "%s",\n  luarocks = "%s",\n  mode = "managed",\n  platform = "%s",\n}\n' \
-  "$CLI_VERSION" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$LUA_VERSION" "$LUAROCKS_VERSION" "$PLAT" \
-  > "$MANIFEST"
+RESTY_LINE=""
+RESTY_PATH=""
+if [ "$RESTY" -eq 1 ]; then
+  RESTY_LINE="$(printf '  openresty = "%s",\n' "$OPENRESTY_VERSION")"
+  RESTY_PATH="$ROOT/openresty/bin:"
+fi
+
+{
+  printf 'return {\n  cli = "%s",\n  created = "%s",\n  lua = "%s",\n  luarocks = "%s",\n  mode = "managed",\n' \
+    "$CLI_VERSION" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$LUA_VERSION" "$LUAROCKS_VERSION"
+  [ -z "$RESTY_LINE" ] || printf '%s\n' "$RESTY_LINE"
+  printf '  platform = "%s",\n}\n' "$PLAT"
+} > "$MANIFEST"
 
 say "managed toolchain ready at $ROOT"
 say "managed toku: $ROOT/rocks/bin/toku"
+[ "$RESTY" -eq 0 ] || say "managed openresty: $ROOT/openresty/bin/openresty"
 say "optional PATH wiring:"
-say "  export PATH=\"$ROOT/rocks/bin:$ROOT/luarocks/bin:$ROOT/lua/bin:\$PATH\""
+say "  export PATH=\"$ROOT/rocks/bin:$ROOT/luarocks/bin:$ROOT/lua/bin:$RESTY_PATH\$PATH\""
 say "verify with: toku doctor"

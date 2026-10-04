@@ -113,12 +113,17 @@ test("setup-toku.sh pins match the santoku-cli setup pins", function ()
   local src = fs.readfile("res/setup-toku.sh")
   local lua_v = str.match(src, "\nLUA_VERSION=(%S+)") or str.match(src, "^LUA_VERSION=(%S+)")
   local lr_v = str.match(src, "\nLUAROCKS_VERSION=(%S+)")
+  local or_v = str.match(src, "\nOPENRESTY_VERSION=(%S+)")
   local cli = require("santoku.cli.setup")
-  if lua_v ~= cli.pins.lua.version or lr_v ~= cli.pins.luarocks.version then
+  if lua_v ~= cli.pins.lua.version or lr_v ~= cli.pins.luarocks.version
+    or or_v ~= cli.pins.openresty.version
+  then
     fail("setup-toku.sh pins", {
-      "res/setup-toku.sh pins lua " .. tostring(lua_v) .. " and luarocks " .. tostring(lr_v),
+      "res/setup-toku.sh pins lua " .. tostring(lua_v) .. ", luarocks " .. tostring(lr_v)
+        .. " and openresty " .. tostring(or_v),
       "the installed santoku-cli pins lua " .. cli.pins.lua.version
-        .. " and luarocks " .. cli.pins.luarocks.version,
+        .. ", luarocks " .. cli.pins.luarocks.version
+        .. " and openresty " .. cli.pins.openresty.version,
       "the served script must provision exactly what toku expects, so align the pins "
         .. "in res/setup-toku.sh and lib/santoku/cli/setup.lua and release both",
     })

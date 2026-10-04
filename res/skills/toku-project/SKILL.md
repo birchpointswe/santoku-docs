@@ -84,6 +84,10 @@ Web notes: do not pipe `toku start`, because it backgrounds OpenResty and the pi
 closes. `stop` takes no `--test` even though `start` does. Flags that belong to another
 project type are rejected rather than ignored.
 
+`--single` runs the spec from `build/default/test`, and that tree holds only the one spec.
+A spec that loads another spec by a relative path (`fs.runfile("test/spec/other.lua")`)
+fails with "No such file or directory"; pass an absolute source-tree path instead.
+
 Sanitizers are an environment, so use `--env sanitize` with a `make.sanitize.lua` that bakes
 in the toolchain and flags, paired with `--lua` to preload the runtime where ASan needs it.
 

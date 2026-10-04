@@ -64,7 +64,7 @@ return {
   env = {
 
     name = "santoku-docs",
-    version = "0.0.12-1",
+    version = "0.0.13-1",
     license = "MIT",
     copyright = "Birch Point SWE",
     license_exclude = { "client/static/setup-toku.tk.sh" },
@@ -167,7 +167,7 @@ return {
           "santoku >= 2.5.0, < 3.0.0",
           "santoku-make >= 5.7.0, < 6.0.0",
           "santoku-bundle >= 2.1.1, < 3.0.0",
-          "santoku-cli >= 2.19.0, < 3.0.0",
+          "santoku-cli >= 2.20.1, < 3.0.0",
           "santoku-fs >= 2.1.3, < 3.0.0",
           "santoku-web >= 2.2.3, < 3.0.0",
           "santoku-http >= 2.0.0, < 3.0.0",
